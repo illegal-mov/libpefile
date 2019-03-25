@@ -134,6 +134,7 @@ static void readNtH(struct pefile *pe, char *errBuf)
 static void readSectionH(struct pefile *pe, char *errBuf)
 {
     uint16_t nSect = pe->nt.file.numberOfSections;
+    assert(nSect > 0);
     pe->sctns = pefile_malloc(sizeof(pe->sctns[0]) * nSect,
         "section headers",
         errBuf);
@@ -147,6 +148,7 @@ static void readSectionH(struct pefile *pe, char *errBuf)
 static uint16_t* readExportByNameOrd(struct pefile *pe, int diff, char *errBuf)
 {
     uint32_t nNames = pe->xprt->edir.numberOfNames;
+    assert(nNames > 0);
     uint16_t *nords = pefile_malloc(sizeof(pe->xprt->nords[0]) * nNames,
         "export name ordinals",
         errBuf);
@@ -157,14 +159,30 @@ static uint16_t* readExportByNameOrd(struct pefile *pe, int diff, char *errBuf)
 
 /* Build array of functions exported by ordinal
  */
-static uint32_t* readExportedFunc(struct pefile *pe, int diff, char *errBuf)
+static struct export_func_ptr* readExportedFunc(struct pefile *pe, int xprt_diff, char *errBuf)
 {
     uint32_t nFuncs = pe->xprt->edir.numberOfFunctions;
-    uint32_t *ords = pefile_malloc(sizeof(ords[0]) * nFuncs,
+    assert(nFuncs > 0);
+    struct export_func_ptr *ords = pefile_malloc(sizeof(ords[0]) * nFuncs,
         "export function ordinals",
         errBuf);
-    fseek(pe->file, pe->xprt->edir.addressOfFunctions - diff, SEEK_SET);
-    fread(ords, sizeof(ords[0]), nFuncs, pe->file);
+
+    // read only one `ord` just to get its rva
+    fseek(pe->file, pe->xprt->edir.addressOfFunctions - xprt_diff, SEEK_SET);
+    fread(&ords[0].rva, sizeof(ords[0].rva), 1, pe->file);
+
+    // dirty hack to find `.text` section diff
+    struct data_dir temp = {.virtualAddress=ords[0].rva, .size=1};
+    int index = getSectionOfDir(pe, &temp);
+    int code_diff = fixOffset(pe->sctns, index);
+
+    // can now get true file offset to exported functions
+    ords[0].pointerToCode = ords[0].rva - code_diff;
+    for (uint32_t i=1; i < nFuncs; i++) {
+        fread(&ords[i].rva, sizeof(ords[0].rva), 1, pe->file);
+        ords[i].pointerToCode = ords[i].rva - code_diff;
+    }
+
     return ords;
 }
 
@@ -183,6 +201,7 @@ static void readExportedFuncName(struct pefile *pe, struct export_by_name *ebn, 
 static struct export_by_name* readExportByName(struct pefile *pe, int diff, char *errBuf)
 {
     uint32_t nNames = pe->xprt->edir.numberOfNames;
+    assert(nNames > 0);
     struct export_by_name *names = pefile_malloc(sizeof(names[0]) * nNames,
         "export function names",
         errBuf);
@@ -263,6 +282,7 @@ static void readResourceTable(struct pefile *pe, struct resource_table *rt, int 
     int nEntries = rt->hdr.numberOfNamedEntries + rt->hdr.numberOfIdEntries;
 
     rt->branchesLen = nEntries;
+    assert(nEntries > 0);
     rt->branches = pefile_malloc(sizeof(rt->branches[0]) * nEntries,
         "resource directory entries",
         errBuf);
@@ -391,6 +411,7 @@ static void readRelocationBlock(struct pefile *pe, struct reloc_table *relocbloc
     fread(&relocblock->header, sizeof(relocblock->header), 1, pe->file);
 
     // read relocation entries
+    assert(relocblock->header.size - sizeof(relocblock->header) > 0);
     relocblock->entries = pefile_malloc(relocblock->header.size
         - sizeof(relocblock->header), "relocation block", errBuf);
     fread(relocblock->entries, relocblock->header.size

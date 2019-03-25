@@ -242,13 +242,13 @@ struct dos_h {
 };
 
 struct file_h {
-    uint16_t machine;
-    uint16_t numberOfSections;
-    uint32_t timeDateStamp;
-    uint32_t pointerToSymbolTable;
-    uint32_t numberOfSymbols;
-    uint16_t sizeOfOptionalHeader;
-    uint16_t characteristics;
+    uint16_t machine;              // type of cpu the binary was compiled for
+    uint16_t numberOfSections;     // number of section headers
+    uint32_t timeDateStamp;        // file creation time as UNIX epoch
+    uint32_t pointerToSymbolTable; // deprecated
+    uint32_t numberOfSymbols;      // deprecated
+    uint16_t sizeOfOptionalHeader; // size of optional header in bytes
+    uint16_t characteristics;      // bitfields for various things
     /* 0x0001 IMAGE_FILE_RELOCS_STRIPPED
      * 0x0002 IMAGE_FILE_EXECUTABLE_IMAGE
      * 0x0004 IMAGE_FILE_LINE_NUMS_STRIPPED
@@ -296,14 +296,14 @@ struct optional_common_h {
     uint32_t sizeOfCode;
     uint32_t sizeOfInitializedData;
     uint32_t sizeOfUninitializedData;
-    uint32_t addressOfEntryPoint;
+    uint32_t addressOfEntryPoint;         // RVA to beginning of executable code
     uint32_t baseOfCode;
     union {
-        struct {              // for 32 bit
-            uint32_t baseOfData;
+        struct {
+            uint32_t baseOfData;          // Preferred base address
             uint32_t imageBase32;
         };
-        uint64_t imageBase64; // for 64 bit
+        uint64_t imageBase64;             // Preferred base address
     };
     uint32_t sectionAlignment;
     uint32_t fileAlignment;
@@ -429,7 +429,7 @@ struct section_h {
         uint32_t physicalAddress;
         uint32_t virtualSize;
     } misc;
-    uint32_t virtualAddress;
+    uint32_t virtualAddress; // rva
     uint32_t sizeOfRawData;
     uint32_t pointerToRawData;
     uint32_t pointerToRelocations;
@@ -553,11 +553,16 @@ struct export_by_name { // address_of_name (Pointers to strings)
     uint32_t rva;
 };
 
+struct export_func_ptr {
+    uint32_t rva;
+    uint32_t pointerToCode;
+};
+
 struct export_table {
     struct export_dir edir;
+    struct export_func_ptr *ords; // address_of_function (Indexed by Ordinals)
+    uint16_t *nords;              // name_ordinal (array of WORDs)
     struct export_by_name *names; // array
-    uint32_t *ords;  // address_of_function (Indexed by Ordinals)
-    uint16_t *nords; // name_ordinal (array of WORDs)
 };
 
 struct resource_table {
@@ -592,8 +597,7 @@ struct exception_dir_64 {
     uint32_t unwindInformation;
 };
 
-struct cert_table
-{
+struct cert_table {
     struct certificate_metadata mtdt;
     char *data;
 };
