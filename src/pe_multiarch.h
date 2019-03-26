@@ -4,7 +4,7 @@
 /* Read hint and name of the imported function
  * Some functions might be imported by ordinal and will not have a hint or name
  */
-#define PEFILE_READ_IMPORT_BY_NAME(BITS, TYPE, FMT)                                                         \
+#define PEFILE_READ_IMPORT_BY_NAME(BITS, FMT)                                                               \
 static void readImportByName##BITS(struct pefile *pe, struct thunk_data_entry *oft, int diff, char *errBuf) \
 {                                                                                                           \
     /* imports by ordinal have no name, so produce this string instead */                                   \
@@ -12,7 +12,10 @@ static void readImportByName##BITS(struct pefile *pe, struct thunk_data_entry *o
         oft->ibn.hint = 0;                                                                                  \
         snprintf(oft->ibn.name, PEFILE_FUNCTION_NAME_MAX_LEN,                                               \
             "Ordinal: %.*"#FMT"x", BITS / 4,                                                                \
-            oft->mtdt##BITS.addressOfData & (TYPE)-1 >> 1);                                                 \
+            /* %lx does not play nice with bit fields, so do this crazy bitwise junk instead.               \
+             * cast -1 to an unsigned int to get all 0xF, then shift right to unset top bit                 \
+             */                                                                                             \
+            oft->mtdt##BITS.addressOfData & (uint##BITS##_t)-1 >> 1);                                       \
         return;                                                                                             \
     }                                                                                                       \
     /* save file pointer position, seek to and read hint, fgets name, restore file pointer pos */           \
@@ -34,7 +37,7 @@ static struct thunk_data_entry* readThunkData##BITS(struct pefile *pe, int idt_i
     int oft_len = 0, oft_maxLen = 8; /* ALERT! Arbitrary number */                                            \
     struct thunk_data_entry *tda = pefile_malloc(sizeof(tda[0]) * oft_maxLen,                                 \
         "thunk data", errBuf);                                                                                \
-    fseek(pe->file, pe->mprts[idt_index].mtdt.originalFirstThunk - diff, SEEK_SET);                           \
+    fseek(pe->file, pe->mprts[idt_index].mtdt.firstThunk - diff, SEEK_SET);                                   \
     fread(&tda[oft_len].mtdt##BITS, sizeof(tda[0].mtdt##BITS), 1, pe->file);                                  \
     /* thunk data are stored as a null-terminated array */                                                    \
     struct thunk_data_##BITS null = {0};                                                                      \

@@ -17,7 +17,7 @@ void (*pefile_error_handler)(int status, char *errMsg) = pefile_exit;
 /* Read hint and name of the imported function
  * Some functions might be imported by ordinal and will not have a hint or name
  */
-PEFILE_READ_IMPORT_BY_NAME(32, uint32_t, ) PEFILE_READ_IMPORT_BY_NAME(64, uint64_t, l)
+PEFILE_READ_IMPORT_BY_NAME(32, ) PEFILE_READ_IMPORT_BY_NAME(64, l)
 
 /* Build array of offsets to names of imported functions
  * Returns a pointer to the base of the new array

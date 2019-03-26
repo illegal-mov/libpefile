@@ -18,8 +18,6 @@
 #define STRUCT_THUNK_DATA(BITS)                \
 struct thunk_data_##BITS {                     \
     union {                                    \
-        uint##BITS##_t forwarderString;        \
-        uint##BITS##_t function;               \
         struct {                               \
             uint##BITS##_t ordinal : BITS - 1; \
             uint##BITS##_t isOrd   : 1;        \
@@ -34,28 +32,28 @@ struct tls_table_##BITS {                 \
     uint##BITS##_t endAddressOfRawData;   \
     uint##BITS##_t addressOfIndex;        \
     uint##BITS##_t addressOfCallBacks;    \
-    uint32_t sizeOfZeroFill;              \
-    uint32_t characteristics;             \
+    uint32_t       sizeOfZeroFill;        \
+    uint32_t       characteristics;       \
 };
 
 #define STRUCT_LOAD_CONFIG(BITS)                   \
 struct load_config_##BITS {                        \
-    uint32_t characteristics;                      \
-    uint32_t timeDateStamp;                        \
-    uint16_t majorVersion;                         \
-    uint16_t minorVersion;                         \
-    uint32_t globalFlagsClear;                     \
-    uint32_t globalFlagsSet;                       \
-    uint32_t criticalSectionDefaultTimeout;        \
+    uint32_t       characteristics;                \
+    uint32_t       timeDateStamp;                  \
+    uint16_t       majorVersion;                   \
+    uint16_t       minorVersion;                   \
+    uint32_t       globalFlagsClear;               \
+    uint32_t       globalFlagsSet;                 \
+    uint32_t       criticalSectionDefaultTimeout;  \
     uint##BITS##_t deCommitFreeBlockThreshold;     \
     uint##BITS##_t deCommitTotalFreeThreshold;     \
     uint##BITS##_t lockPrefixTable;                \
     uint##BITS##_t maximumAllocationSize;          \
     uint##BITS##_t virtualMemoryThreshold;         \
     uint##BITS##_t processAffinityMask;            \
-    uint32_t processHeapFlags;                     \
-    uint16_t csdVersion;                           \
-    uint16_t reserved;                             \
+    uint32_t       processHeapFlags;               \
+    uint16_t       csdVersion;                     \
+    uint16_t       reserved;                       \
     uint##BITS##_t editList;                       \
     uint##BITS##_t securityCookie;                 \
     uint##BITS##_t seHandlerTable;                 \
@@ -63,8 +61,8 @@ struct load_config_##BITS {                        \
     uint##BITS##_t guardCfDispatchFunctionPointer; \
     uint##BITS##_t guardCfFunctionTable;           \
     uint##BITS##_t guardCfFunctionCount;           \
-    uint32_t guardFlags;                           \
-    char     codeIntegrity[12];                    \
+    uint32_t       guardFlags;                     \
+    char           codeIntegrity[12];              \
     uint##BITS##_t guardAddressTakenIatEntryTable; \
     uint##BITS##_t guardAddressTakenIatEntryCount; \
     uint##BITS##_t guardLongJumpTargetTable;       \
@@ -373,10 +371,7 @@ struct export_dir { // IMAGE_EXPORT_DIRECTORY
 
 /* metadata about the imported module */
 struct import_desc { // IMAGE_IMPORT_DESCRIPTOR
-    union {
-        uint32_t characteristics;
-        uint32_t originalFirstThunk; // struct thunk_data*
-    };
+    uint32_t characteristics;
     int32_t  timeDateStamp;
     int32_t  forwarderChain;
     uint32_t name;
@@ -541,15 +536,15 @@ struct thunk_data_entry {
 };
 
 struct import_table {
-    char name[PEFILE_MODULE_NAME_MAX_LEN];
+    char   name[PEFILE_MODULE_NAME_MAX_LEN];
     struct import_desc mtdt;
     struct thunk_data_entry *ofts; // array
-    int oftsLen;
+    int    oftsLen;
 };
 
 /* offset to the exported function name and the name itself */
 struct export_by_name { // address_of_name (Pointers to strings)
-    char name[PEFILE_FUNCTION_NAME_MAX_LEN];
+    char     name[PEFILE_FUNCTION_NAME_MAX_LEN];
     uint32_t rva;
 };
 
@@ -561,25 +556,25 @@ struct export_func_ptr {
 struct export_table {
     struct export_dir edir;
     struct export_func_ptr *ords; // address_of_function (Indexed by Ordinals)
-    uint16_t *nords;              // name_ordinal (array of WORDs)
+    uint16_t              *nords; // name_ordinal (array of WORDs)
     struct export_by_name *names; // array
 };
 
 struct resource_table {
-    struct resource_header hdr;  // get nNamed and nId entries here
-    struct resource_node *branches; // array
-    int branchesLen;
+    struct resource_header  hdr;  // get nNamed and nId entries here
+    struct resource_node   *branches; // array
+    int                     branchesLen;
 };
 
 struct resource_name {
     uint16_t len;
-    wchar_t name[PEFILE_RESOURCE_NAME_MAX_LEN];
+    wchar_t  name[PEFILE_RESOURCE_NAME_MAX_LEN];
 };
 
 struct resource_node {
-    struct resource_entry ent; // data from disk
-    struct resource_data mtdt;
-    struct resource_name rname; // if nameIsString
+    struct resource_entry  ent; // data from disk
+    struct resource_data   mtdt;
+    struct resource_name   rname; // if nameIsString
     struct resource_table *tbl; // if dataIsDirectory
 };
 
@@ -598,14 +593,14 @@ struct exception_dir_64 {
 };
 
 struct cert_table {
-    struct certificate_metadata mtdt;
-    char *data;
+    struct  certificate_metadata mtdt;
+    char   *data;
 };
 
 struct reloc_table {
-    struct relocation_header header;
-    struct relocation_entry *entries; // array
-    int entriesLen;
+    struct relocation_header  header;
+    struct relocation_entry  *entries; // array
+    int                       entriesLen;
 };
 
 struct pefile {
