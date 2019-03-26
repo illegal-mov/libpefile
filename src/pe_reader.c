@@ -324,38 +324,37 @@ static void readResourceDir(struct pefile *pe, char *errBuf)
     int rsrcOffset = 0;
 
     pe->rsrc = pefile_malloc(sizeof(*pe->rsrc), "resource table header", errBuf);
-    struct pefile_crumbs *root = NULL;
-    struct pefile_crumb crm = {.rt=pe->rsrc};
+    struct pefile_crumbs *crms = NULL, current = {.rt=pe->rsrc};
 
     do {
-        readResourceTable(pe, crm.rt, rsrcBase + rsrcOffset, errBuf);
-        crm.rryLn = crm.rt->branchesLen;
+        readResourceTable(pe, current.rt, rsrcBase + rsrcOffset, errBuf);
+        current.rryLn = current.rt->branchesLen;
 
-        for (crm.ndx=0; crm.ndx < crm.rryLn; crm.ndx++) {
-            struct resource_node *rn = &crm.rt->branches[crm.ndx];
+        for (current.ndx=0; current.ndx < current.rryLn; current.ndx++) {
+            struct resource_node *rn = &current.rt->branches[current.ndx];
             if (rn->ent.nameIsString)
                 readResourceName(pe, rn, rsrcBase, errBuf);
 
             if (rn->ent.dataIsDirectory) {
                 // save crumb before entering next directory
-                pefile_bc_push(&root, &crm);
-                rn->tbl = pefile_malloc(sizeof(*crm.rt), "resource table header", errBuf);
+                pefile_bc_push(&crms, &current);
+                rn->tbl = pefile_malloc(sizeof(*current.rt), "resource table header", errBuf);
                 // set rsrcOffset for the upcoming call to `readResourceTable`
                 rsrcOffset = rn->ent.offsetToDirectory;
-                crm.rt = rn->tbl;
+                current.rt = rn->tbl;
                 break;
             } else {
                 readResourceMetadata(pe, rn, rsrcBase + rn->ent.offsetToData);
                 // return to parent directory
-                pefile_bc_pop(&root, &crm);
+                pefile_bc_pop(&crms, &current);
             }
 
             // ensure pop when index iterator is done
-            if (crm.ndx == crm.rryLn - 1)
-                pefile_bc_pop(&root, &crm);
+            if (current.ndx == current.rryLn - 1)
+                pefile_bc_pop(&crms, &current);
         }
     // end of algorithm when crumb is at top level and index iterator is done
-    } while (root != NULL);
+    } while (crms != NULL);
 
     pefile_isTrunc(pe->file, "Resource directory is", errBuf);
 }

@@ -11,82 +11,81 @@ struct resource_node* getResourceByName(struct resource_table *rsrc, const wchar
     if (rsrc == NULL)
         return NULL;
 
-    struct pefile_crumbs *root = NULL;
-    struct pefile_crumb crm = {.rt=rsrc};
+    struct pefile_crumbs *crms = NULL, current = {.rt=rsrc};
 
     do {
-        crm.rryLn = crm.rt->hdr.numberOfNamedEntries + crm.rt->hdr.numberOfIdEntries;
-        for (crm.ndx=0; crm.ndx < crm.rryLn; crm.ndx++) {
-            struct resource_node *rn = &crm.rt->branches[crm.ndx];
+        current.rryLn = current.rt->hdr.numberOfNamedEntries + current.rt->hdr.numberOfIdEntries;
+        for (current.ndx=0; current.ndx < current.rryLn; current.ndx++) {
+            struct resource_node *rn = &current.rt->branches[current.ndx];
             if (rn->ent.nameIsString) {
                 if (wcsncasecmp(rn->rname.name, name, PEFILE_RESOURCE_NAME_MAX_LEN) == 0) {
                     // clean up any left-over crumbs
-                    while (root != NULL) {
-                        struct pefile_crumbs *temp = root->next;
-                        free(root);
-                        root = temp;
+                    while (crms != NULL) {
+                        struct pefile_crumbs *temp = crms->next;
+                        free(crms);
+                        crms = temp;
                     }
                     return rn;
                 }
             }
 
             if (rn->ent.dataIsDirectory) {
-                pefile_bc_push(&root, &crm);
-                crm.rt = rn->tbl;
+                pefile_bc_push(&crms, &current);
+                current.rt = rn->tbl;
                 break;
             } else {
-                pefile_bc_pop(&root, &crm);
+                pefile_bc_pop(&crms, &current);
             }
 
-            if (crm.ndx == crm.rryLn - 1)
-                pefile_bc_pop(&root, &crm);
+            if (current.ndx == current.rryLn - 1)
+                pefile_bc_pop(&crms, &current);
         }
 
-    } while (root != NULL);
+    } while (crms != NULL);
 
     return NULL;
 }
 
-/* TODO: flatten singletons */
+// TODO: flatten singletons
 struct resource_node* getNextResource(struct resource_table *rsrc)
 {
     if (rsrc == NULL)
         return NULL;
 
-    struct pefile_crumbs *root = NULL;
-    struct pefile_crumb crm = {.rt=rsrc};
+    struct pefile_crumbs *crms = NULL, current = {.rt=rsrc};
 
     do {
-        crm.rryLn = crm.rt->branchesLen;
+        current.rryLn = current.rt->branchesLen;
 
-        if (crm.rryLn == 1 && crm.rt->branches[0].ent.dataIsDirectory) {
-            crm.rt = crm.rt->branches[0].tbl;
+        if (current.rryLn == 1 && current.rt->branches[0].ent.dataIsDirectory) {
+            current.rt = current.rt->branches[0].tbl;
             continue;
         }
 
-        for (crm.ndx=0; crm.ndx < crm.rryLn; crm.ndx++) {
-            struct resource_node *rn = &crm.rt->branches[crm.ndx];
+        for (current.ndx=0; current.ndx < current.rryLn; current.ndx++) {
+            struct resource_node *rn = &current.rt->branches[current.ndx];
             printf("%08x | %08x", rn->ent.name, rn->ent.offsetToData);
             if (rn->ent.nameIsString)
                 printf(" | %ls", rn->rname.name);
             printf("\n");
 
             if (rn->ent.dataIsDirectory) {
-                pefile_bc_push(&root, &crm);
-                crm.rt = rn->tbl;
+                pefile_bc_push(&crms, &current);
+                current.rt = rn->tbl;
                 break;
             } else {
-                pefile_bc_pop(&root, &crm);
+                pefile_bc_pop(&crms, &current);
             }
 
-            if (crm.ndx == crm.rryLn - 1)
-                pefile_bc_pop(&root, &crm);
+            if (current.ndx == current.rryLn - 1)
+                pefile_bc_pop(&crms, &current);
 
         }
-    } while (root != NULL);
+    } while (crms != NULL);
 
     return NULL;
 }
+//*/
 
 void dumpResourceData(struct pefile *pe, const struct resource_data *rd, const char *path, char *errBuf)
 {

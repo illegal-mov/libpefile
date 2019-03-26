@@ -88,19 +88,19 @@ void pefile_isTrunc(FILE *f, const char *errMsg, char *errBuf)
     }
 }
 
-void pefile_bc_push(struct pefile_crumbs **root, struct pefile_crumb *obj)
+void pefile_bc_push(struct pefile_crumbs **root, struct pefile_crumbs *temp)
 {
     struct pefile_crumbs *bcnew = malloc(sizeof(*bcnew));
-    *bcnew = (struct pefile_crumbs) {.next=*root};
-    memcpy(&bcnew->crm, obj, sizeof(*obj));
+    memcpy(bcnew, temp, sizeof(*temp));
+    bcnew->next = *root;
     *root = bcnew;
 }
 
-void pefile_bc_pop(struct pefile_crumbs **root, struct pefile_crumb *ret)
+void pefile_bc_pop(struct pefile_crumbs **root, struct pefile_crumbs *temp)
 {
     struct pefile_crumbs *top = *root;
-    memcpy(ret, &top->crm, sizeof(*ret));
     *root = top->next;
+    memcpy(temp, top, sizeof(*temp));
     free(top);
 }
 
