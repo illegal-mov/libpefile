@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include "pe_errors.h"
 
-char* pefile_err_to_str(int code)
+char* pefile_errToStr(int code)
 {
     switch (code) {
         case PEFILE_SUCCESS:       return "Success";

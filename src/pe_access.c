@@ -14,7 +14,8 @@ struct resource_node* getResourceByName(struct resource_table *rsrc, const wchar
     struct pefile_crumbs *crms = NULL, current = {.rt=rsrc};
 
     do {
-        current.rryLn = current.rt->hdr.numberOfNamedEntries + current.rt->hdr.numberOfIdEntries;
+        current.rryLn = current.rt->hdr.numberOfNamedEntries +
+                        current.rt->hdr.numberOfIdEntries;
         for (current.ndx=0; current.ndx < current.rryLn; current.ndx++) {
             struct resource_node *rn = &current.rt->branches[current.ndx];
             if (rn->ent.nameIsString) {
@@ -30,15 +31,15 @@ struct resource_node* getResourceByName(struct resource_table *rsrc, const wchar
             }
 
             if (rn->ent.dataIsDirectory) {
-                pefile_bc_push(&crms, &current);
+                pefile_bcPush(&crms, &current);
                 current.rt = rn->tbl;
                 break;
             } else {
-                pefile_bc_pop(&crms, &current);
+                pefile_bcPop(&crms, &current);
             }
 
             if (current.ndx == current.rryLn - 1)
-                pefile_bc_pop(&crms, &current);
+                pefile_bcPop(&crms, &current);
         }
 
     } while (crms != NULL);
@@ -47,7 +48,7 @@ struct resource_node* getResourceByName(struct resource_table *rsrc, const wchar
 }
 
 // TODO: flatten singletons
-struct resource_node* getNextResource(struct resource_table *rsrc)
+struct resource_table* getNextResourceDir(struct resource_table *rsrc)
 {
     if (rsrc == NULL)
         return NULL;
@@ -55,31 +56,20 @@ struct resource_node* getNextResource(struct resource_table *rsrc)
     struct pefile_crumbs *crms = NULL, current = {.rt=rsrc};
 
     do {
-        current.rryLn = current.rt->branchesLen;
-
-        if (current.rryLn == 1 && current.rt->branches[0].ent.dataIsDirectory) {
-            current.rt = current.rt->branches[0].tbl;
-            continue;
-        }
-
+        current.rryLn = current.rt->hdr.numberOfNamedEntries +
+                        current.rt->hdr.numberOfIdEntries;
         for (current.ndx=0; current.ndx < current.rryLn; current.ndx++) {
             struct resource_node *rn = &current.rt->branches[current.ndx];
-            printf("%08x | %08x", rn->ent.name, rn->ent.offsetToData);
-            if (rn->ent.nameIsString)
-                printf(" | %ls", rn->rname.name);
-            printf("\n");
-
             if (rn->ent.dataIsDirectory) {
-                pefile_bc_push(&crms, &current);
+                pefile_bcPush(&crms, &current);
                 current.rt = rn->tbl;
-                break;
+                return current.rt;
             } else {
-                pefile_bc_pop(&crms, &current);
+                pefile_bcPop(&crms, &current);
             }
 
             if (current.ndx == current.rryLn - 1)
-                pefile_bc_pop(&crms, &current);
-
+                pefile_bcPop(&crms, &current);
         }
     } while (crms != NULL);
 

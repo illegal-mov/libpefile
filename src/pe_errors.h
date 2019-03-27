@@ -13,7 +13,7 @@ enum pefile_errs {
     PEFILE_LONG_RES_NAME,
 };
 
-char* pefile_err_to_str(int code);
+char* pefile_errToStr(int code);
 void pefile_exit(int status, char *errMsg);
 void (*pefile_error_handler)(int status, char *errMsg);
 

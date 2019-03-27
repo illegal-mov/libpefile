@@ -54,7 +54,7 @@ static int isAllDeInFile(struct pefile *pe, char *errBuf) {
             struct data_dir *dd = pe->nt.opt.ddir;
             if (dd[i].virtualAddress + dd[i].size - diff >= fSize) {
                 snprintf(errBuf, PEFILE_ERRBUF_LEN, "%s %s",
-                    pefile_dir_to_str(i), "is truncated");
+                    pefile_dirToStr(i), "is truncated");
                 pefile_error_handler(PEFILE_GENERIC_ERR, errBuf);
                 return 0;
             }
@@ -337,7 +337,7 @@ static void readResourceDir(struct pefile *pe, char *errBuf)
 
             if (rn->ent.dataIsDirectory) {
                 // save crumb before entering next directory
-                pefile_bc_push(&crms, &current);
+                pefile_bcPush(&crms, &current);
                 rn->tbl = pefile_malloc(sizeof(*current.rt), "resource table header", errBuf);
                 // set rsrcOffset for the upcoming call to `readResourceTable`
                 rsrcOffset = rn->ent.offsetToDirectory;
@@ -346,12 +346,12 @@ static void readResourceDir(struct pefile *pe, char *errBuf)
             } else {
                 readResourceMetadata(pe, rn, rsrcBase + rn->ent.offsetToData);
                 // return to parent directory
-                pefile_bc_pop(&crms, &current);
+                pefile_bcPop(&crms, &current);
             }
 
             // ensure pop when index iterator is done
             if (current.ndx == current.rryLn - 1)
-                pefile_bc_pop(&crms, &current);
+                pefile_bcPop(&crms, &current);
         }
     // end of algorithm when crumb is at top level and index iterator is done
     } while (crms != NULL);

@@ -35,7 +35,7 @@ int fixOffset(const struct section_h *sctns, int sctn_ndx)
            sctns[sctn_ndx].pointerToRawData;
 }
 
-char* pefile_dir_to_str(int index)
+char* pefile_dirToStr(int index)
 {
     switch (index) {
         case PE_DE_EXPORT:       return "Export directory";
@@ -88,7 +88,7 @@ void pefile_isTrunc(FILE *f, const char *errMsg, char *errBuf)
     }
 }
 
-void pefile_bc_push(struct pefile_crumbs **root, struct pefile_crumbs *temp)
+void pefile_bcPush(struct pefile_crumbs **root, struct pefile_crumbs *temp)
 {
     struct pefile_crumbs *bcnew = malloc(sizeof(*bcnew));
     memcpy(bcnew, temp, sizeof(*temp));
@@ -96,7 +96,7 @@ void pefile_bc_push(struct pefile_crumbs **root, struct pefile_crumbs *temp)
     *root = bcnew;
 }
 
-void pefile_bc_pop(struct pefile_crumbs **root, struct pefile_crumbs *temp)
+void pefile_bcPop(struct pefile_crumbs **root, struct pefile_crumbs *temp)
 {
     struct pefile_crumbs *top = *root;
     *root = top->next;
