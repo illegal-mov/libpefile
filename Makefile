@@ -16,7 +16,7 @@ OBJS_TEST := $(TEST:%=$(BUILD_DIR)/%.o)
 INC_DIRS := $(shell find $(SRC_DIRS) -type d)
 INC_FLAGS := $(addprefix -I,$(INC_DIRS))
 
-CFLAGS := -D_BSD_SOURCE -std=c11 -Wall -Wextra -Werror -O0
+CFLAGS := -D _DEFAULT_SOURCE -std=c11 -Wall -Wextra -Werror -O0
 CPPFLAGS ?= $(INC_FLAGS) -MMD -MP -std=c++11 -Wall -Weffc++ -Wextra -Wsign-conversion -Werror
 
 $(BUILD_DIR)/$(TARGET_EXEC): $(OBJS)
