@@ -8,29 +8,29 @@
 
 static void pefile_freeResourceDir(struct pefile *pe)
 {
-    struct pefile_crumbs *root = NULL;
-    struct pefile_crumb crm = {.rt=pe->rsrc};
+    struct pefile_crumbs *crms = NULL, current={.rt=pe->rsrc};
 
     do {
-        crm.rryLn = crm.rt->hdr.numberOfNamedEntries + crm.rt->hdr.numberOfIdEntries;
-        for (crm.ndx=0; crm.ndx < crm.rryLn; crm.ndx++) {
-            struct resource_node *rn = &crm.rt->branches[crm.ndx];
+        current.rryLn = current.rt->hdr.numberOfNamedEntries +
+                        current.rt->hdr.numberOfIdEntries;
+        for (current.ndx=0; current.ndx < current.rryLn; current.ndx++) {
+            struct resource_node *rn = &current.rt->branches[current.ndx];
             if (rn->ent.dataIsDirectory) {
-                pefile_bc_push(&root, &crm);
-                crm.rt = rn->tbl;
+                pefile_bcPush(&crms, &current);
+                current.rt = rn->tbl;
                 break;
             } else {
-                free(crm.rt);
-                pefile_bc_pop(&root, &crm);
+                free(current.rt);
+                pefile_bcPop(&crms, &current);
             }
 
-            if (crm.ndx == crm.rryLn - 1) {
-                free(crm.rt);
-                pefile_bc_pop(&root, &crm);
+            if (current.ndx == current.rryLn - 1) {
+                free(current.rt);
+                pefile_bcPop(&crms, &current);
             }
         }
 
-    } while (root != NULL);
+    } while (crms != NULL);
 }
 
 /* Free the memory used by the PE file struct
