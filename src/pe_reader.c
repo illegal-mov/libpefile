@@ -149,7 +149,7 @@ static uint16_t* readExportByNameOrd(struct pefile *pe, int diff, char *errBuf)
 {
     uint32_t nNames = pe->xprt->edir.numberOfNames;
     assert(nNames > 0);
-    uint16_t *nords = pefile_malloc(sizeof(pe->xprt->nords[0]) * nNames,
+    uint16_t *nords = pefile_malloc(sizeof(nords[0]) * nNames,
         "export name ordinals",
         errBuf);
     fseek(pe->file, pe->xprt->edir.addressOfNameOrdinals - diff, SEEK_SET);
@@ -338,7 +338,7 @@ static void readResourceDir(struct pefile *pe, char *errBuf)
             if (rn->ent.dataIsDirectory) {
                 // save crumb before entering next directory
                 pefile_bcPush(&crms, &current);
-                rn->tbl = pefile_malloc(sizeof(*current.rt), "resource table header", errBuf);
+                rn->tbl = pefile_malloc(sizeof(*rn->tbl), "resource table header", errBuf);
                 // set rsrcOffset for the upcoming call to `readResourceTable`
                 rsrcOffset = rn->ent.offsetToDirectory;
                 current.rt = rn->tbl;
@@ -365,26 +365,28 @@ static void readCertificateDir(struct pefile *pe, char *errBuf)
     if (index == PEFILE_NO_SECTION)
         return;
 
-    int nBytesRead = 0, cd_len = 0, cd_maxLen = 2; // ALERT! Arbitrary number
+    int cd_maxLen = 2; // ALERT! Arbitrary number
     pe->certs = pefile_malloc(sizeof(pe->certs[0]) * cd_maxLen,
         "certificate directory",
         errBuf);
 
     fseek(pe->file, pe->nt.opt.ddir[PE_DE_CERTIFICATE].virtualAddress, SEEK_SET);
+    int nBytesRead = 0, cd_len = 0;
     int certDirSize = pe->nt.opt.ddir[PE_DE_CERTIFICATE].size;
 
     while (nBytesRead < certDirSize) {
         fread(&pe->certs[cd_len].mtdt, sizeof(pe->certs[0].mtdt), 1, pe->file);
-        pe->certs[cd_len].data = pefile_malloc(pe->certs[cd_len].mtdt.size,
+        uint32_t certSize = pe->certs[cd_len].mtdt.size;
+        pe->certs[cd_len].data = pefile_malloc(certSize,
             "certificate directory",
             errBuf);
 
-        fread(pe->certs[cd_len].data, pe->certs[cd_len].mtdt.size, 1, pe->file);
+        fread(pe->certs[cd_len].data, certSize, 1, pe->file);
 
         // pad to align on 8-byte boundaries
-        int alignment = (8 - (pe->certs[cd_len].mtdt.size & 7)) & 7;
+        int alignment = (8 - (certSize & 7)) & 7;
         fseek(pe->file, alignment, SEEK_CUR);
-        nBytesRead += pe->certs[cd_len].mtdt.size;
+        nBytesRead += certSize;
         nBytesRead += alignment;
         cd_len++;
 
@@ -410,12 +412,13 @@ static void readRelocationBlock(struct pefile *pe, struct reloc_table *relocbloc
     fread(&relocblock->header, sizeof(relocblock->header), 1, pe->file);
 
     // read relocation entries
-    assert(relocblock->header.size - sizeof(relocblock->header) > 0);
-    relocblock->entries = pefile_malloc(relocblock->header.size
+    uint32_t relocBlockSize = relocblock->header.size;
+    assert(relocBlockSize - sizeof(relocblock->header) > 0);
+    relocblock->entries = pefile_malloc(relocBlockSize
         - sizeof(relocblock->header), "relocation block", errBuf);
-    fread(relocblock->entries, relocblock->header.size
+    fread(relocblock->entries, relocBlockSize
         - sizeof(relocblock->header), 1, pe->file);
-    relocblock->entriesLen = (relocblock->header.size
+    relocblock->entriesLen = (relocBlockSize
         - sizeof(relocblock->header)) / sizeof(relocblock->entries[0]);
 }
 
@@ -459,11 +462,11 @@ static void readDebugDir(struct pefile *pe, char *errBuf)
 
     int diff = fixOffset(pe->sctns, index);
     fseek(pe->file, pe->nt.opt.ddir[PE_DE_DEBUG].virtualAddress - diff, SEEK_SET);
-    int dbg_dir_size = pe->nt.opt.ddir[PE_DE_DEBUG].size;
+    int dbgDirSize = pe->nt.opt.ddir[PE_DE_DEBUG].size;
 
-    pe->dbgs = pefile_malloc(dbg_dir_size, "debug directory", errBuf);
-    fread(pe->dbgs, dbg_dir_size, 1, pe->file);
-    int dbgsLen = dbg_dir_size / sizeof(pe->dbgs[0]);
+    pe->dbgs = pefile_malloc(dbgDirSize, "debug directory", errBuf);
+    fread(pe->dbgs, dbgDirSize, 1, pe->file);
+    int dbgsLen = dbgDirSize / sizeof(pe->dbgs[0]);
     for (int i=0; i < dbgsLen; i++)
         assert(pe->dbgs[0].characteristics == 0);
 
