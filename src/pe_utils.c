@@ -8,7 +8,7 @@
 /* Get index of the section a directory entry was merged into
  * Returns the index of the relevant section or PEFILE_NO_SECTION if not found
  */
-int getSectionOfDir(struct pefile *pe, const struct data_dir *entry)
+int pefile_getSectionOfDir(const struct pefile *pe, const struct data_dir *entry)
 {
     if (entry->virtualAddress == 0 || entry->size == 0)
         return PEFILE_NO_SECTION; // -1
@@ -27,7 +27,7 @@ int getSectionOfDir(struct pefile *pe, const struct data_dir *entry)
 /* Adjust offsets when a data directory entry is merged into some section
  * Returns the integer difference between the virtual address and raw address
  */
-int fixOffset(const struct section_h *sctns, int sctn_ndx)
+int pefile_fixOffset(const struct section_h *sctns, int sctn_ndx)
 {
     assert(sctns[sctn_ndx].virtualAddress >=
            sctns[sctn_ndx].pointerToRawData);

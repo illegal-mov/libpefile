@@ -15,7 +15,7 @@ static void pefile_freeResourceDir(struct pefile *pe)
                         current.rt->hdr.numberOfIdEntries;
         for (current.ndx=0; current.ndx < current.rryLn; current.ndx++) {
             struct resource_node *rn = &current.rt->branches[current.ndx];
-            if (rn->ent.dataIsDirectory) {
+            if (rn->entry.dataIsDirectory) {
                 pefile_bcPush(&crms, &current);
                 current.rt = rn->tbl;
                 break;
@@ -42,7 +42,7 @@ void pefile_free(struct pefile *pe)
 
     // export dir
     if (HAS_DIR(pe->xprt)) {
-        free(pe->xprt->ords);
+        free(pe->xprt->addrs);
         free(pe->xprt->nords);
         free(pe->xprt->names);
         free(pe->xprt);
@@ -52,7 +52,7 @@ void pefile_free(struct pefile *pe)
     // import dir
     if (HAS_DIR(pe->mprts)) {
         for (int i=0; i < pe->mprtsLen; i++) {
-            free(pe->mprts[i].ofts);
+            free(pe->mprts[i].ils);
             i++;
         }
         free(pe->mprts);

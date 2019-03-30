@@ -11,8 +11,8 @@ struct pefile_crumbs {
     struct pefile_crumbs *next;
 };
 
-int getSectionOfDir(struct pefile *pe, const struct data_dir *entry);
-int fixOffset(const struct section_h *sctns, int sctn_indx);
+int pefile_getSectionOfDir(const struct pefile *pe, const struct data_dir *entry);
+int pefile_fixOffset(const struct section_h *sctns, int sctn_indx);
 char* pefile_dirToStr(int index);
 void pefile_isTrunc(FILE *f, const char *errMsg, char *errBuf);
 void* pefile_malloc(size_t size, const char *errMsg, char *errBuf);

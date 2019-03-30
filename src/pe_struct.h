@@ -22,6 +22,7 @@ struct thunk_data_##BITS {                     \
             uint##BITS##_t ordinal : BITS - 1; \
             uint##BITS##_t isOrd   : 1;        \
         };                                     \
+        /* offset to import_by_name */         \
         uint##BITS##_t addressOfData;          \
     };                                         \
 };
@@ -355,69 +356,6 @@ struct nt_h {
     struct optional_common_h opt;
 };
 
-struct export_dir { // IMAGE_EXPORT_DIRECTORY
-    uint32_t characteristics;
-    uint32_t timeDateStamp;
-    uint16_t majorVersion;
-    uint16_t minorVersion;
-    uint32_t name;
-    uint32_t base;
-    uint32_t numberOfFunctions;
-    uint32_t numberOfNames;
-    uint32_t addressOfFunctions;
-    uint32_t addressOfNames;
-    uint32_t addressOfNameOrdinals;
-};
-
-/* metadata about the imported module */
-struct import_desc { // IMAGE_IMPORT_DESCRIPTOR
-    uint32_t characteristics;
-    int32_t  timeDateStamp;
-    int32_t  forwarderChain;
-    uint32_t name;
-    uint32_t firstThunk; // struct thunk_data*
-};
-
-STRUCT_THUNK_DATA(32) STRUCT_THUNK_DATA(64)
-
-struct import_by_name { // IMAGE_IMPORT_BY_NAME
-    uint16_t hint;
-    char     name[PEFILE_FUNCTION_NAME_MAX_LEN];
-};
-
-struct resource_header {
-    uint32_t characteristics;
-    uint32_t timeDateStamp;
-    uint16_t majorVersion;
-    uint16_t minorVersion;
-    uint16_t numberOfNamedEntries;
-    uint16_t numberOfIdEntries;
-};
-
-struct debug_dir {
-    uint32_t characteristics;
-    uint32_t timeDateStamp;
-    uint16_t majorVersion;
-    uint16_t minorVersion;
-    uint32_t type;
-    uint32_t sizeOfData;
-    uint32_t addressOfRawData;
-    uint32_t pointerToRawData;
-};
-
-STRUCT_TLS_TABLE(32) STRUCT_TLS_TABLE(64)
-
-struct delay_import_desc {
-    uint32_t grAttrs;
-    uint32_t szName;
-    uint32_t phmod;
-    uint32_t pIAT;
-    uint32_t pINT;
-    uint32_t pBoundIAT;
-    uint32_t pUnloadIAT;
-    uint32_t dwTimeStamp;
-};
-
 struct section_h {
     char     name[PEFILE_SECTION_NAME_MAX_LEN];
     union {
@@ -470,6 +408,76 @@ struct section_h {
      */
 };
 
+struct export_dir {
+    uint32_t characteristics;
+    uint32_t timeDateStamp;
+    uint16_t majorVersion;
+    uint16_t minorVersion;
+    uint32_t name;
+    uint32_t base;
+    uint32_t numberOfFunctions;
+    uint32_t numberOfNames;
+    uint32_t addressOfFunctions;
+    uint32_t addressOfNames;
+    uint32_t addressOfOrdinals;
+};
+
+/* metadata about the imported module */
+struct import_desc {
+    union {
+        uint32_t characteristics;
+        uint32_t originalFirstThunk; // RVA to import names table
+        uint32_t addressOfInt;
+    };
+    int32_t  timeDateStamp;
+    int32_t  forwarderChain;
+    uint32_t name;
+    union {
+        uint32_t firstThunk; // RVA to import address table
+        uint32_t addressOfIat;
+    };
+};
+
+STRUCT_THUNK_DATA(32) STRUCT_THUNK_DATA(64)
+
+struct import_by_name {
+    uint16_t hint;
+    char     name[PEFILE_FUNCTION_NAME_MAX_LEN];
+};
+
+struct resource_header {
+    uint32_t characteristics;
+    uint32_t timeDateStamp;
+    uint16_t majorVersion;
+    uint16_t minorVersion;
+    uint16_t numberOfNamedEntries;
+    uint16_t numberOfIdEntries;
+};
+
+struct debug_dir {
+    uint32_t characteristics;
+    uint32_t timeDateStamp;
+    uint16_t majorVersion;
+    uint16_t minorVersion;
+    uint32_t type;
+    uint32_t sizeOfData;
+    uint32_t addressOfRawData;
+    uint32_t pointerToRawData;
+};
+
+STRUCT_TLS_TABLE(32) STRUCT_TLS_TABLE(64)
+
+struct delay_import_desc {
+    uint32_t grAttrs;
+    uint32_t szName;
+    uint32_t phmod;
+    uint32_t pIAT;
+    uint32_t pINT;
+    uint32_t pBoundIAT;
+    uint32_t pUnloadIAT;
+    uint32_t dwTimeStamp;
+};
+
 struct resource_entry {
     union { // string or ID
         struct {
@@ -488,7 +496,7 @@ struct resource_entry {
     };
 };
 
-struct resource_data {
+struct resource_metadata {
     uint32_t offsetToData;
     uint32_t size;
     uint32_t codePage;
@@ -527,7 +535,7 @@ STRUCT_LOAD_CONFIG(32) STRUCT_LOAD_CONFIG(64)
  * structures here do not occur literally in the PE file and are used to better organize data
  */
 
-struct thunk_data_entry {
+struct import_lookup {
     union {
         struct thunk_data_32 mtdt32;
         struct thunk_data_64 mtdt64;
@@ -536,10 +544,10 @@ struct thunk_data_entry {
 };
 
 struct import_table {
-    char   name[PEFILE_MODULE_NAME_MAX_LEN];
-    struct import_desc mtdt;
-    struct thunk_data_entry *ofts; // array
-    int    oftsLen;
+    char                  name[PEFILE_MODULE_NAME_MAX_LEN];
+    struct import_desc    mtdt;
+    struct import_lookup *ils; // array
+    int                   ilsLen;
 };
 
 /* offset to the exported function name and the name itself */
@@ -554,10 +562,13 @@ struct export_func_ptr {
 };
 
 struct export_table {
-    struct export_dir edir;
-    struct export_func_ptr *ords; // address_of_function (Indexed by Ordinals)
-    uint16_t              *nords; // name_ordinal (array of WORDs)
-    struct export_by_name *names; // array
+    struct export_dir        edir;
+    struct export_func_ptr  *addrs; // address_of_function (Indexed by Ordinals)
+    uint16_t                *nords; // name_ordinal (array of WORDs)
+    struct export_by_name   *names; // array
+    int                      addrsLen;
+    int                      nordsLen;
+    int                      namesLen;
 };
 
 struct resource_table {
@@ -567,15 +578,15 @@ struct resource_table {
 };
 
 struct resource_name {
-    uint16_t len;
     wchar_t  name[PEFILE_RESOURCE_NAME_MAX_LEN];
+    uint16_t len;
 };
 
 struct resource_node {
-    struct resource_entry  ent; // data from disk
-    struct resource_data   mtdt;
-    struct resource_name   rname; // if nameIsString
-    struct resource_table *tbl; // if dataIsDirectory
+    struct resource_entry     entry; // entry metadata
+    struct resource_metadata  mtdt;  // file metadata
+    struct resource_name      rname; // if nameIsString
+    struct resource_table    *tbl;   // if dataIsDirectory
 };
 
 struct exception_dir_32 {

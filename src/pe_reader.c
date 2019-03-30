@@ -17,12 +17,12 @@ void (*pefile_error_handler)(int status, char *errMsg) = pefile_exit;
 /* Read hint and name of the imported function
  * Some functions might be imported by ordinal and will not have a hint or name
  */
-PEFILE_READ_IMPORT_BY_NAME(32, ) PEFILE_READ_IMPORT_BY_NAME(64, l)
+PEFILE_READ_IMPORT_HINT_NAME(32, ) PEFILE_READ_IMPORT_HINT_NAME(64, l)
 
 /* Build array of offsets to names of imported functions
  * Returns a pointer to the base of the new array
  */
-PEFILE_READ_THUNK_DATA(32) PEFILE_READ_THUNK_DATA(64)
+PEFILE_READ_IMPORT_NAMES_TABLE(32) PEFILE_READ_IMPORT_NAMES_TABLE(64)
 
 /* Build array of import descriptors
  * Returns the length of the new array
@@ -45,13 +45,17 @@ PEFILE_READ_LOAD_CONFIG_DIR(32) PEFILE_READ_LOAD_CONFIG_DIR(64)
  * All directory entry offsets must be less than the file size
  */
 static int isAllDeInFile(struct pefile *pe, char *errBuf) {
+    // get file size
     fseek(pe->file, 0, SEEK_END);
     long fSize = ftell(pe->file);
     for (int i=0; i < PEFILE_DATA_DIR_LEN; i++) {
-        int index = getSectionOfDir(pe, &pe->nt.opt.ddir[i]);
+        int index = pefile_getSectionOfDir(pe, &pe->nt.opt.ddir[i]);
         if (index != PEFILE_NO_SECTION) {
-            int diff = fixOffset(pe->sctns, index);
+            int diff = pefile_fixOffset(pe->sctns, index);
             struct data_dir *dd = pe->nt.opt.ddir;
+            /* ensure file offset to data directory entry
+             * plus that entry's size is less than file size
+             */
             if (dd[i].virtualAddress + dd[i].size - diff >= fSize) {
                 snprintf(errBuf, PEFILE_ERRBUF_LEN, "%s %s",
                     pefile_dirToStr(i), "is truncated");
@@ -82,7 +86,7 @@ static void readDosH(struct pefile *pe, char *errBuf)
 static void readOptionalH(struct pefile *pe, char *errBuf)
 {
     // read up to but not including loaderFlags
-    // loaderFlags is first field after common 32/64 bit fields
+    // loaderFlags marks start of some 32/64 bit fields
     fread(&pe->nt.opt, 1,
         offsetof(struct optional_common_h, loaderFlags), pe->file);
 
@@ -104,12 +108,13 @@ static void readOptionalH(struct pefile *pe, char *errBuf)
         sizeof(pe->nt.opt.numberOfRvaAndSizes) +
         sizeof(pe->nt.opt.ddir), pe->file);
 
+    pefile_isTrunc(pe->file, "Optional header is", errBuf);
+
+    /* assert facts about fields because Microsoft documentation said so */
     assert(pe->nt.opt.sectionAlignment >= pe->nt.opt.fileAlignment);
     assert(pe->nt.opt.win32VersionValue == 0);
     assert(pe->nt.opt.sizeOfImage % pe->nt.opt.sectionAlignment == 0);
     assert(pe->nt.opt.loaderFlags == 0);
-
-    pefile_isTrunc(pe->file, "Optional header is", errBuf);
 }
 
 /* Read the NT header
@@ -134,59 +139,62 @@ static void readNtH(struct pefile *pe, char *errBuf)
 static void readSectionH(struct pefile *pe, char *errBuf)
 {
     uint16_t nSect = pe->nt.file.numberOfSections;
-    assert(nSect > 0);
     pe->sctns = pefile_malloc(sizeof(pe->sctns[0]) * nSect,
         "section headers",
         errBuf);
+
     fread(pe->sctns, sizeof(pe->sctns[0]), nSect, pe->file);
     pefile_isTrunc(pe->file, "Section headers are", errBuf);
 }
 
 /* Build array of ordinals for names
- * Returns a pointer to the base of the array or NULL on error
+ * Returns a pointer to the base of the array
  */
-static uint16_t* readExportByNameOrd(struct pefile *pe, int diff, char *errBuf)
+static uint16_t* readExportOrdinalTable(struct pefile *pe, int diff, char *errBuf)
 {
-    uint32_t nNames = pe->xprt->edir.numberOfNames;
-    assert(nNames > 0);
+    uint32_t nNames = pe->xprt->nordsLen;
     uint16_t *nords = pefile_malloc(sizeof(nords[0]) * nNames,
         "export name ordinals",
         errBuf);
-    fseek(pe->file, pe->xprt->edir.addressOfNameOrdinals - diff, SEEK_SET);
+
+    fseek(pe->file, pe->xprt->edir.addressOfOrdinals - diff, SEEK_SET);
     fread(nords, sizeof(nords[0]), nNames, pe->file);
     return nords;
 }
 
-/* Build array of functions exported by ordinal
+/* Build array of functions exported by ordinal.
+ * This type of export is a simple array of RVAs to
+ * code on disk so the RVAs must be changed to file
+ * offsets because they are merged into .text section.
+ * Returns an array of structs of RVAs and file offsets to code.
  */
-static struct export_func_ptr* readExportedFunc(struct pefile *pe, int xprt_diff, char *errBuf)
+static struct export_func_ptr* readExportAddressTable(struct pefile *pe, int xprtDiff, char *errBuf)
 {
-    uint32_t nFuncs = pe->xprt->edir.numberOfFunctions;
-    assert(nFuncs > 0);
+    uint32_t nFuncs = pe->xprt->addrsLen;
     struct export_func_ptr *ords = pefile_malloc(sizeof(ords[0]) * nFuncs,
         "export function ordinals",
         errBuf);
 
     // read only one `ord` just to get its rva
-    fseek(pe->file, pe->xprt->edir.addressOfFunctions - xprt_diff, SEEK_SET);
+    fseek(pe->file, pe->xprt->edir.addressOfFunctions - xprtDiff, SEEK_SET);
     fread(&ords[0].rva, sizeof(ords[0].rva), 1, pe->file);
 
     // dirty hack to find `.text` section diff
     struct data_dir temp = {.virtualAddress=ords[0].rva, .size=1};
-    int index = getSectionOfDir(pe, &temp);
-    int code_diff = fixOffset(pe->sctns, index);
+    int index = pefile_getSectionOfDir(pe, &temp);
+    int codeDiff = pefile_fixOffset(pe->sctns, index);
 
     // can now get true file offset to exported functions
-    ords[0].pointerToCode = ords[0].rva - code_diff;
+    ords[0].pointerToCode = ords[0].rva - codeDiff;
     for (uint32_t i=1; i < nFuncs; i++) {
         fread(&ords[i].rva, sizeof(ords[0].rva), 1, pe->file);
-        ords[i].pointerToCode = ords[i].rva - code_diff;
+        ords[i].pointerToCode = ords[i].rva - codeDiff;
     }
 
     return ords;
 }
 
-/* Reads the name of the exported function
+/* Reads the name of the exported function.
  */
 static void readExportedFuncName(struct pefile *pe, struct export_by_name *ebn, int diff)
 {
@@ -196,17 +204,21 @@ static void readExportedFuncName(struct pefile *pe, struct export_by_name *ebn, 
     fseek(pe->file, pos, SEEK_SET);
 }
 
-/* Build array of offsets to names of the exported functions
+/* This is an array of RVAs to exported function names.
+ * Read all array elements and use each element to offset to
+ * file location where the function name is stored.
+ * Returns the base address of the array of RVAs and names.
  */
-static struct export_by_name* readExportByName(struct pefile *pe, int diff, char *errBuf)
+static struct export_by_name* readExportNamesTable(struct pefile *pe, int diff, char *errBuf)
 {
-    uint32_t nNames = pe->xprt->edir.numberOfNames;
-    assert(nNames > 0);
+    uint32_t nNames = pe->xprt->namesLen;
     struct export_by_name *names = pefile_malloc(sizeof(names[0]) * nNames,
         "export function names",
         errBuf);
+
     fseek(pe->file, pe->xprt->edir.addressOfNames - diff, SEEK_SET);
     for (uint32_t i=0; i < nNames; i++) {
+        // get RVA to function name
         fread(&names[i].rva, sizeof(names[i].rva), 1, pe->file);
         readExportedFuncName(pe, &names[i], diff);
     }
@@ -214,25 +226,30 @@ static struct export_by_name* readExportByName(struct pefile *pe, int diff, char
     return names;
 }
 
-/* Read export directory data
- * Build arrays of functions exported by name, ordinal, and name ordinal
+/* Export directory is a single table with 3 pointers to different
+ * pieces of export data. The export types are code, ordinal, and name.
  */
 static void readExportDir(struct pefile *pe, char *errBuf)
 {
-    int index = getSectionOfDir(pe, &pe->nt.opt.ddir[PE_DE_EXPORT]);
+    int index = pefile_getSectionOfDir(pe, &pe->nt.opt.ddir[PE_DE_EXPORT]);
     if (index == PEFILE_NO_SECTION)
         return;
 
-    int diff = fixOffset(pe->sctns, index);
+    int diff = pefile_fixOffset(pe->sctns, index);
 
     pe->xprt = pefile_malloc(sizeof(*pe->xprt), "export directory", errBuf);
     fseek(pe->file, pe->nt.opt.ddir[PE_DE_EXPORT].virtualAddress - diff, SEEK_SET);
     fread(&pe->xprt->edir, sizeof(*pe->xprt), 1, pe->file);
-    assert(pe->xprt->edir.characteristics == 0);
-    pe->xprt->ords  = readExportedFunc(pe, diff, errBuf);
-    pe->xprt->nords = readExportByNameOrd(pe, diff, errBuf);
-    pe->xprt->names = readExportByName(pe, diff, errBuf);
+
+    pe->xprt->addrsLen = pe->xprt->edir.numberOfFunctions;
+    pe->xprt->nordsLen = pe->xprt->edir.numberOfNames;
+    pe->xprt->namesLen = pe->xprt->edir.numberOfNames;
+
     pefile_isTrunc(pe->file, "Export directory is", errBuf);
+    assert(pe->xprt->edir.characteristics == 0);
+    pe->xprt->addrs = readExportAddressTable(pe, diff, errBuf);
+    pe->xprt->nords = readExportOrdinalTable(pe, diff, errBuf);
+    pe->xprt->names = readExportNamesTable(pe, diff, errBuf);
 }
 
 /* Read name of the module being imported from
@@ -252,7 +269,7 @@ static void readImportDescName(struct pefile *pe, struct import_table *idata, in
 static void readResourceName(struct pefile *pe, struct resource_node *rn, int rsrcBase, char *errBuf)
 {
     long pos = ftell(pe->file);
-    fseek(pe->file, rsrcBase + rn->ent.nameOffset, SEEK_SET);
+    fseek(pe->file, rsrcBase + rn->entry.nameOffset, SEEK_SET);
     fread(&rn->rname.len, sizeof(rn->rname.len), 1, pe->file);
     unsigned int nameLen = rn->rname.len;
     if (nameLen >= PEFILE_RESOURCE_NAME_MAX_LEN) {
@@ -289,7 +306,7 @@ static void readResourceTable(struct pefile *pe, struct resource_table *rt, int 
 
     // read array of resource entries
     for (int i=0; i < nEntries; i++)
-        fread(&rt->branches[i].ent, sizeof(rt->branches[0].ent), 1, pe->file);
+        fread(&rt->branches[i].entry, sizeof(rt->branches[0].entry), 1, pe->file);
 }
 
 /* Get the size and location of the actual resource data
@@ -315,11 +332,11 @@ static void readResourceMetadata(struct pefile *pe, struct resource_node *rn, in
  */
 static void readResourceDir(struct pefile *pe, char *errBuf)
 {
-    int index = getSectionOfDir(pe, &pe->nt.opt.ddir[PE_DE_RESOURCE]);
+    int index = pefile_getSectionOfDir(pe, &pe->nt.opt.ddir[PE_DE_RESOURCE]);
     if (index == PEFILE_NO_SECTION)
         return;
 
-    int diff = fixOffset(pe->sctns, index);
+    int diff = pefile_fixOffset(pe->sctns, index);
     int rsrcBase = pe->nt.opt.ddir[PE_DE_RESOURCE].virtualAddress - diff;
     int rsrcOffset = 0;
 
@@ -332,19 +349,19 @@ static void readResourceDir(struct pefile *pe, char *errBuf)
 
         for (current.ndx=0; current.ndx < current.rryLn; current.ndx++) {
             struct resource_node *rn = &current.rt->branches[current.ndx];
-            if (rn->ent.nameIsString)
+            if (rn->entry.nameIsString)
                 readResourceName(pe, rn, rsrcBase, errBuf);
 
-            if (rn->ent.dataIsDirectory) {
+            if (rn->entry.dataIsDirectory) {
                 // save crumb before entering next directory
                 pefile_bcPush(&crms, &current);
                 rn->tbl = pefile_malloc(sizeof(*rn->tbl), "resource table header", errBuf);
                 // set rsrcOffset for the upcoming call to `readResourceTable`
-                rsrcOffset = rn->ent.offsetToDirectory;
+                rsrcOffset = rn->entry.offsetToDirectory;
                 current.rt = rn->tbl;
                 break;
             } else {
-                readResourceMetadata(pe, rn, rsrcBase + rn->ent.offsetToData);
+                readResourceMetadata(pe, rn, rsrcBase + rn->entry.offsetToData);
                 // return to parent directory
                 pefile_bcPop(&crms, &current);
             }
@@ -359,49 +376,58 @@ static void readResourceDir(struct pefile *pe, char *errBuf)
     pefile_isTrunc(pe->file, "Resource directory is", errBuf);
 }
 
+/* The certificate directory is an array of 8-byte headers each
+ * concatenated with a variable number of bytes of certificate data
+ */
 static void readCertificateDir(struct pefile *pe, char *errBuf)
 {
-    int index = getSectionOfDir(pe, &pe->nt.opt.ddir[PE_DE_CERTIFICATE]);
+    int index = pefile_getSectionOfDir(pe, &pe->nt.opt.ddir[PE_DE_CERTIFICATE]);
     if (index == PEFILE_NO_SECTION)
         return;
 
-    int cd_maxLen = 2; // ALERT! Arbitrary number
-    pe->certs = pefile_malloc(sizeof(pe->certs[0]) * cd_maxLen,
+    // start with enough memory allocated for 2 certificates
+    uint32_t cdMaxLen = 2; // ALERT! Arbitrary number
+    pe->certs = pefile_malloc(sizeof(pe->certs[0]) * cdMaxLen,
         "certificate directory",
         errBuf);
 
+    // no `pefile_fixOffset` here because the certificate directory is weird like that
     fseek(pe->file, pe->nt.opt.ddir[PE_DE_CERTIFICATE].virtualAddress, SEEK_SET);
-    int nBytesRead = 0, cd_len = 0;
-    int certDirSize = pe->nt.opt.ddir[PE_DE_CERTIFICATE].size;
+    uint32_t nBytesRead = 0, cdLen = 0;
+    uint32_t certDirSize = pe->nt.opt.ddir[PE_DE_CERTIFICATE].size;
 
     while (nBytesRead < certDirSize) {
-        fread(&pe->certs[cd_len].mtdt, sizeof(pe->certs[0].mtdt), 1, pe->file);
-        uint32_t certSize = pe->certs[cd_len].mtdt.size;
-        pe->certs[cd_len].data = pefile_malloc(certSize,
+        // read certificate metadata which includes certicificate size
+        fread(&pe->certs[cdLen].mtdt, sizeof(pe->certs[0].mtdt), 1, pe->file);
+        uint32_t certSize = pe->certs[cdLen].mtdt.size;
+        assert(certSize <= certDirSize);
+
+        // allocate memory for and read certificate bytes
+        pe->certs[cdLen].data = pefile_malloc(certSize,
             "certificate directory",
             errBuf);
 
-        fread(pe->certs[cd_len].data, certSize, 1, pe->file);
+        fread(pe->certs[cdLen].data, certSize, 1, pe->file);
 
         // pad to align on 8-byte boundaries
         int alignment = (8 - (certSize & 7)) & 7;
         fseek(pe->file, alignment, SEEK_CUR);
         nBytesRead += certSize;
         nBytesRead += alignment;
-        cd_len++;
+        cdLen++;
 
-        /* unknown array length, so keep doubling memory when space runs out */
-        if (cd_len >= cd_maxLen) {
-            cd_maxLen <<= 1;
+        // unknown array length, so keep doubling memory when space runs out
+        if (cdLen >= cdMaxLen) {
+            cdMaxLen <<= 1;
             pe->certs = pefile_realloc(pe->certs,
-                sizeof(pe->certs[0]) * cd_maxLen,
+                sizeof(pe->certs[0]) * cdMaxLen,
                 "certificate directory",
                 errBuf);
         }
     }
 
     assert(nBytesRead == certDirSize);
-    pe->certsLen = cd_len;
+    pe->certsLen = cdLen;
     // no `isTrunc()` check here because certificates
     // may be located at the very end of the file
 }
@@ -422,45 +448,48 @@ static void readRelocationBlock(struct pefile *pe, struct reloc_table *relocbloc
         - sizeof(relocblock->header)) / sizeof(relocblock->entries[0]);
 }
 
+/* Relocation directory is a two-dimensional array
+ */
 static void readRelocationDir(struct pefile *pe, char *errBuf)
 {
-    int index = getSectionOfDir(pe, &pe->nt.opt.ddir[PE_DE_RELOCATION]);
+    int index = pefile_getSectionOfDir(pe, &pe->nt.opt.ddir[PE_DE_RELOCATION]);
     if (index == PEFILE_NO_SECTION)
         return;
 
-    int diff = fixOffset(pe->sctns, index);
+    int diff = pefile_fixOffset(pe->sctns, index);
     fseek(pe->file, pe->nt.opt.ddir[PE_DE_RELOCATION].virtualAddress - diff, SEEK_SET);
 
     int nBytesRead = 0, nBytesToRead = pe->nt.opt.ddir[PE_DE_RELOCATION].size;
 
-    int blk_len = 0, blk_maxLen = 32; // ALERT! Arbitrary number
-    pe->relocs = pefile_malloc(sizeof(pe->relocs[0]) * blk_maxLen,
+    // start with enough memory allocated for 32 blocks
+    int blkLen = 0, blkMaxLen = 32; // ALERT! Arbitrary number
+    pe->relocs = pefile_malloc(sizeof(pe->relocs[0]) * blkMaxLen,
         "relocation directory", errBuf);
 
     while (nBytesRead < nBytesToRead) {
-        readRelocationBlock(pe, &pe->relocs[blk_len], errBuf);
-        nBytesRead += pe->relocs[blk_len].header.size;
-        blk_len++;
-        /* unknown array length, so keep doubling memory when space runs out */
-        if (blk_len >= blk_maxLen) {
-            blk_maxLen <<= 1;
+        readRelocationBlock(pe, &pe->relocs[blkLen], errBuf);
+        nBytesRead += pe->relocs[blkLen].header.size;
+        blkLen++;
+        // unknown array length, so keep doubling memory when space runs out
+        if (blkLen >= blkMaxLen) {
+            blkMaxLen <<= 1;
             pe->relocs = pefile_realloc(pe->relocs,
-                sizeof(pe->relocs[0]) * blk_maxLen,
+                sizeof(pe->relocs[0]) * blkMaxLen,
                 "relocation directory", errBuf);
         }
     }
 
     pefile_isTrunc(pe->file, "Relocation directory is", errBuf);
-    pe->relocsLen = blk_len;
+    pe->relocsLen = blkLen;
 }
 
 static void readDebugDir(struct pefile *pe, char *errBuf)
 {
-    int index = getSectionOfDir(pe, &pe->nt.opt.ddir[PE_DE_DEBUG]);
+    int index = pefile_getSectionOfDir(pe, &pe->nt.opt.ddir[PE_DE_DEBUG]);
     if (index == PEFILE_NO_SECTION)
         return;
 
-    int diff = fixOffset(pe->sctns, index);
+    int diff = pefile_fixOffset(pe->sctns, index);
     fseek(pe->file, pe->nt.opt.ddir[PE_DE_DEBUG].virtualAddress - diff, SEEK_SET);
     int dbgDirSize = pe->nt.opt.ddir[PE_DE_DEBUG].size;
 
@@ -477,35 +506,35 @@ static void readDebugDir(struct pefile *pe, char *errBuf)
 /*
 static void readGlobalptrDir(struct pefile *pe, char *errBuf)
 {
-    int index = getSectionOfDir(pe, &pe->nt.opt.ddir[PE_DE_GLOBALPTR]);
+    int index = pefile_getSectionOfDir(pe, &pe->nt.opt.ddir[PE_DE_GLOBALPTR]);
     if (index == PEFILE_NO_SECTION)
         return;
 }
 
 static void readBoundImportDir(struct pefile *pe, char *errBuf)
 {
-    int index = getSectionOfDir(pe, &pe->nt.opt.ddir[PE_DE_BOUND_IMPORT]);
+    int index = pefile_getSectionOfDir(pe, &pe->nt.opt.ddir[PE_DE_BOUND_IMPORT]);
     if (index == PEFILE_NO_SECTION)
         return;
 }
 
 static void readIatDir(struct pefile *pe, char *errBuf)
 {
-    int index = getSectionOfDir(pe, &pe->nt.opt.ddir[PE_DE_IAT]);
+    int index = pefile_getSectionOfDir(pe, &pe->nt.opt.ddir[PE_DE_IAT]);
     if (index == PEFILE_NO_SECTION)
         return;
 }
 
 static void readDelayImportDir(struct pefile *pe, char *errBuf)
 {
-    int index = getSectionOfDir(pe, &pe->nt.opt.ddir[PE_DE_DELAY_IMPORT]);
+    int index = pefile_getSectionOfDir(pe, &pe->nt.opt.ddir[PE_DE_DELAY_IMPORT]);
     if (index == PEFILE_NO_SECTION)
         return;
 }
 
 static void readClrDir(struct pefile *pe, char *errBuf)
 {
-    int index = getSectionOfDir(pe, &pe->nt.opt.ddir[PE_DE_CLR]);
+    int index = pefile_getSectionOfDir(pe, &pe->nt.opt.ddir[PE_DE_CLR]);
     if (index == PEFILE_NO_SECTION)
         return;
 }
