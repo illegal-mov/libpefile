@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <wctype.h>
 #include "pe_access.h"
 #include "pe_struct.h"
 #include "pe_utils.h"
@@ -22,7 +23,15 @@ struct resource_node* pefile_getResourceByName(struct resource_table *rsrc, cons
         for (current.ndx=0; current.ndx < current.rryLn; current.ndx++) {
             struct resource_node *rn = &current.rt->branches[current.ndx];
             if (rn->entry.nameIsString) {
-                if (wcsncasecmp(rn->rname.name, name, PEFILE_RESOURCE_NAME_MAX_LEN) == 0) {
+
+                // make  a lower case copy
+                wchar_t *resname = rn->rname.name;
+                wchar_t lwr[PEFILE_RESOURCE_NAME_MAX_LEN];
+                for (int i=0; resname[i] != 0; i++)
+                    lwr[i] = towlower(resname[i]);
+
+                // find case-insensitive match
+                if (wcsncmp(lwr, name, PEFILE_RESOURCE_NAME_MAX_LEN) == 0) {
                     // clean up any left-over crumbs
                     while (crms != NULL) {
                         struct pefile_crumbs *temp = crms->next;
