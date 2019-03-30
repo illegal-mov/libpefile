@@ -55,6 +55,14 @@ struct resource_table* pefile_initResourceWalker(struct resource_table *rsrc)
     if (rsrc == NULL)
         return NULL;
 
+    // free any pre-existing crumbs
+    while (crms != NULL) {
+        struct pefile_crumbs *temp = crms->next;
+        free(crms);
+        crms = temp;
+    }
+
+    memset(&current, 0, sizeof(current));
     current.rt = rsrc;
     return rsrc;
 }
