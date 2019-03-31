@@ -10,7 +10,7 @@ static void readImportHintName##BITS(struct pefile *pe, struct import_lookup *il
     /* imports by ordinal have no name, so produce this string instead */                                 \
     if (il->mtdt##BITS.isOrd) {                                                                           \
         il->ibn.hint = 0;                                                                                 \
-        snprintf(il->ibn.name, PEFILE_FUNCTION_NAME_MAX_LEN,                                              \
+        snprintf(il->ibn.name, PEFILE_NAME_FUNCTION_MAX_LEN,                                              \
             "Ordinal: %.*"#FMT"x", BITS / 4,                                                              \
             /* %lx does not play nice with bit fields, so do this crazy bitwise junk instead.             \
              * cast -1 to an unsigned int to get all 0xF, then shift right to unset top bit               \
@@ -22,7 +22,7 @@ static void readImportHintName##BITS(struct pefile *pe, struct import_lookup *il
     long pos = ftell(pe->file);                                                                           \
     fseek(pe->file, il->mtdt##BITS.addressOfData - diff, SEEK_SET);                                       \
     fread(&il->ibn.hint, sizeof(il->ibn.hint), 1, pe->file);                                              \
-    fgets(il->ibn.name, PEFILE_FUNCTION_NAME_MAX_LEN, pe->file);                                          \
+    fgets(il->ibn.name, PEFILE_NAME_FUNCTION_MAX_LEN, pe->file);                                          \
     pefile_isTrunc(pe->file, "An import lookup is", errBuf);                                              \
     fseek(pe->file, pos, SEEK_SET);                                                                       \
 }

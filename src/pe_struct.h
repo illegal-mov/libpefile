@@ -6,13 +6,13 @@
 #include <wchar.h>
 
 #define PEFILE_DATA_DIR_LEN 16
-#define PEFILE_FUNCTION_NAME_MAX_LEN 64
-#define PEFILE_MODULE_NAME_MAX_LEN 64
-#define PEFILE_RESOURCE_NAME_MAX_LEN 32
-#define PEFILE_SECTION_NAME_MAX_LEN 8
-#define PEFILE_DOS_SIG_LEN 2
-#define PEFILE_NT_SIG_LEN 4
-#define HAS_DIR(dir) ((dir) != NULL)
+#define PEFILE_NAME_FUNCTION_MAX_LEN 64
+#define PEFILE_NAME_MODULE_MAX_LEN 64
+#define PEFILE_NAME_RESOURCE_MAX_LEN 32
+#define PEFILE_NAME_SECTION_MAX_LEN 8
+#define PEFILE_PATH_MAX_LEN 256
+#define PEFILE_SIG_LEN_DOS 2
+#define PEFILE_SIG_LEN_NT 4
 
 /* metadata about the imported function */
 #define STRUCT_THUNK_DATA(BITS)                \
@@ -219,7 +219,7 @@ enum relocation_types {
 };
 
 struct dos_h {
-    char     e_magic[PEFILE_DOS_SIG_LEN]; // signature
+    char     e_magic[PEFILE_SIG_LEN_DOS]; // signature
     uint16_t e_cblp;     // count of bytes on last page
     uint16_t e_cp;       // count of pages
     uint16_t e_crlc;     // count of relocations
@@ -351,13 +351,13 @@ struct optional_common_h {
 };
 
 struct nt_h {
-    char   signature[PEFILE_NT_SIG_LEN];
+    char   signature[PEFILE_SIG_LEN_NT];
     struct file_h file;
     struct optional_common_h opt;
 };
 
 struct section_h {
-    char     name[PEFILE_SECTION_NAME_MAX_LEN];
+    char     name[PEFILE_NAME_SECTION_MAX_LEN];
     union {
         uint32_t physicalAddress;
         uint32_t virtualSize;
@@ -442,7 +442,7 @@ STRUCT_THUNK_DATA(32) STRUCT_THUNK_DATA(64)
 
 struct import_by_name {
     uint16_t hint;
-    char     name[PEFILE_FUNCTION_NAME_MAX_LEN];
+    char     name[PEFILE_NAME_FUNCTION_MAX_LEN];
 };
 
 struct resource_header {
@@ -544,7 +544,7 @@ struct import_lookup {
 };
 
 struct import_table {
-    char                  name[PEFILE_MODULE_NAME_MAX_LEN];
+    char                  name[PEFILE_NAME_MODULE_MAX_LEN];
     struct import_desc    mtdt;
     struct import_lookup *ils; // array
     int                   ilsLen;
@@ -552,7 +552,7 @@ struct import_table {
 
 /* offset to the exported function name and the name itself */
 struct export_by_name { // address_of_name (Pointers to strings)
-    char     name[PEFILE_FUNCTION_NAME_MAX_LEN];
+    char     name[PEFILE_NAME_FUNCTION_MAX_LEN];
     uint32_t rva;
 };
 
@@ -578,7 +578,7 @@ struct resource_table {
 };
 
 struct resource_name {
-    wchar_t  name[PEFILE_RESOURCE_NAME_MAX_LEN];
+    wchar_t  name[PEFILE_NAME_RESOURCE_MAX_LEN];
     uint16_t len;
 };
 
@@ -614,6 +614,16 @@ struct reloc_table {
     int                       entriesLen;
 };
 
+struct debug_data {
+    char unknown[24]; // TODO: what are the 24 bytes for?
+    char pdbPath[PEFILE_PATH_MAX_LEN];
+};
+
+struct debug_table {
+    struct debug_dir  hdr;
+    struct debug_data data;
+};
+
 struct pefile {
     FILE *file;
     struct dos_h dos;
@@ -629,7 +639,7 @@ struct pefile {
     };
     struct cert_table         *certs;  // array
     struct reloc_table        *relocs; // array
-    struct debug_dir          *dbgs;   // array
+    struct debug_table        *dbgs;   // array
 //  struct architecture       *rchtr;  // unused, all zero
     struct globalptr          *gptr;   // TODO: find a file with a global pointer
     union { // Consider typecast instead of union

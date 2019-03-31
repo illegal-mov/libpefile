@@ -200,7 +200,7 @@ static void readExportedFuncName(struct pefile *pe, struct export_by_name *ebn, 
 {
     long pos = ftell(pe->file);
     fseek(pe->file, ebn->rva - diff, SEEK_SET);
-    fgets(ebn->name, PEFILE_FUNCTION_NAME_MAX_LEN, pe->file);
+    fgets(ebn->name, PEFILE_NAME_FUNCTION_MAX_LEN, pe->file);
     fseek(pe->file, pos, SEEK_SET);
 }
 
@@ -258,7 +258,7 @@ static void readImportDescName(struct pefile *pe, struct import_table *idata, in
 {
     long pos = ftell(pe->file);
     fseek(pe->file, idata->mtdt.name - diff, SEEK_SET);
-    fgets(idata->name, PEFILE_MODULE_NAME_MAX_LEN, pe->file);
+    fgets(idata->name, PEFILE_NAME_MODULE_MAX_LEN, pe->file);
     pefile_isTrunc(pe->file, "An import descriptor is", errBuf);
     fseek(pe->file, pos, SEEK_SET);
 }
@@ -272,7 +272,7 @@ static void readResourceName(struct pefile *pe, struct resource_node *rn, int rs
     fseek(pe->file, rsrcBase + rn->entry.nameOffset, SEEK_SET);
     fread(&rn->rname.len, sizeof(rn->rname.len), 1, pe->file);
     unsigned int nameLen = rn->rname.len;
-    if (nameLen >= PEFILE_RESOURCE_NAME_MAX_LEN) {
+    if (nameLen >= PEFILE_NAME_RESOURCE_MAX_LEN) {
         strcpy(errBuf, "Resource name is too long");
         pefile_error_handler(PEFILE_LONG_RES_NAME, errBuf);
     }
@@ -483,6 +483,23 @@ static void readRelocationDir(struct pefile *pe, char *errBuf)
     pe->relocsLen = blkLen;
 }
 
+/* Read debug data pointed to by `debug_dir.pointerToRawData`
+ * The first 24 bytes of debug data are unknown, but an ASCII
+ * string is present after the first 24 bytes.
+ */
+static void readDebugData(struct pefile *pe, struct debug_table *dbgTbl, char *errBuf)
+{
+    long pos = ftell(pe->file);
+    fseek(pe->file, dbgTbl->hdr.pointerToRawData, SEEK_SET);
+    fread(dbgTbl->data.unknown, sizeof(dbgTbl->data.unknown), 1, pe->file);
+    fgets(dbgTbl->data.pdbPath, PEFILE_PATH_MAX_LEN, pe->file);
+    pefile_isTrunc(pe->file, "Debug data are", errBuf);
+    fseek(pe->file, pos, SEEK_SET);
+}
+
+/* Debug directory is a variable length array of debug directory entry structs
+ * Each debug directory entry is paired with a debug data struct
+ */
 static void readDebugDir(struct pefile *pe, char *errBuf)
 {
     int index = pefile_getSectionOfDir(pe, &pe->nt.opt.ddir[PE_DE_DEBUG]);
@@ -492,12 +509,17 @@ static void readDebugDir(struct pefile *pe, char *errBuf)
     int diff = pefile_fixOffset(pe->sctns, index);
     fseek(pe->file, pe->nt.opt.ddir[PE_DE_DEBUG].virtualAddress - diff, SEEK_SET);
     int dbgDirSize = pe->nt.opt.ddir[PE_DE_DEBUG].size;
+    int dbgsLen = dbgDirSize / sizeof(pe->dbgs[0].hdr);
 
-    pe->dbgs = pefile_malloc(dbgDirSize, "debug directory", errBuf);
-    fread(pe->dbgs, dbgDirSize, 1, pe->file);
-    int dbgsLen = dbgDirSize / sizeof(pe->dbgs[0]);
-    for (int i=0; i < dbgsLen; i++)
-        assert(pe->dbgs[0].characteristics == 0);
+    // use length of debug_directory to allocate enough memory for
+    // all debug directory entries and all debug_data pointed to by
+    // each debug directory entry
+    pe->dbgs = pefile_malloc(dbgsLen * sizeof(*pe->dbgs), "debug directory", errBuf);
+    for (int i=0; i < dbgsLen; i++) {
+        fread(&pe->dbgs[i].hdr, sizeof(pe->dbgs[0].hdr), 1, pe->file);
+        assert(pe->dbgs[i].hdr.characteristics == 0);
+        readDebugData(pe, &pe->dbgs[i], errBuf);
+    }
 
     pefile_isTrunc(pe->file, "Debug directory is", errBuf);
     pe->dbgsLen = dbgsLen;

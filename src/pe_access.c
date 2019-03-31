@@ -26,12 +26,12 @@ struct resource_node* pefile_getResourceByName(struct resource_table *rsrc, cons
 
                 // make  a lower case copy
                 wchar_t *resname = rn->rname.name;
-                wchar_t lwr[PEFILE_RESOURCE_NAME_MAX_LEN];
+                wchar_t lwr[PEFILE_NAME_RESOURCE_MAX_LEN];
                 for (int i=0; resname[i] != 0; i++)
                     lwr[i] = towlower(resname[i]);
 
                 // find case-insensitive match
-                if (wcsncmp(lwr, name, PEFILE_RESOURCE_NAME_MAX_LEN) == 0) {
+                if (wcsncmp(lwr, name, PEFILE_NAME_RESOURCE_MAX_LEN) == 0) {
                     // clean up any left-over crumbs
                     while (crms != NULL) {
                         struct pefile_crumbs *temp = crms->next;

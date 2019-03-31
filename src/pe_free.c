@@ -41,7 +41,7 @@ void pefile_free(struct pefile *pe)
     pe->sctns = NULL;
 
     // export dir
-    if (HAS_DIR(pe->xprt)) {
+    if (pe->xprt != NULL) {
         free(pe->xprt->addrs);
         free(pe->xprt->nords);
         free(pe->xprt->names);
@@ -50,7 +50,7 @@ void pefile_free(struct pefile *pe)
     }
 
     // import dir
-    if (HAS_DIR(pe->mprts)) {
+    if (pe->mprts != NULL) {
         for (int i=0; i < pe->mprtsLen; i++) {
             free(pe->mprts[i].ils);
             i++;
@@ -60,19 +60,19 @@ void pefile_free(struct pefile *pe)
     }
 
     // resource dir
-    if (HAS_DIR(pe->rsrc)) {
+    if (pe->rsrc != NULL) {
         pefile_freeResourceDir(pe);
         free(pe->rsrc);
         pe->rsrc = NULL;
     }
 
     // exceptions dir
-    if (HAS_DIR(pe->xcpts32)) {
+    if (pe->xcpts32 != NULL) {
         pe->xcpts32 = NULL;
     }
 
     // certificate dir
-    if (HAS_DIR(pe->certs)) {
+    if (pe->certs != NULL) {
         for (int i=0; i < pe->certsLen; i++)
             free(pe->certs[i].data);
         free(pe->certs);
@@ -80,7 +80,7 @@ void pefile_free(struct pefile *pe)
     }
 
     // relocation dir
-    if (HAS_DIR(pe->relocs)) {
+    if (pe->relocs != NULL) {
         for (int i=0; i < pe->relocsLen; i++)
             free(pe->relocs[i].entries);
         free(pe->relocs);
@@ -88,48 +88,48 @@ void pefile_free(struct pefile *pe)
     }
 
     // debug dir
-    if (HAS_DIR(pe->dbgs)) {
+    if (pe->dbgs != NULL) {
         free(pe->dbgs);
         pe->dbgs = NULL;
     }
 
     // architecture dir (unused, all zero)
-//  if (HAS_DIR(pe->rchtr)) {}
+//  if (pe->rchtr != NULL) {}
 
     // global pointer
-    if (HAS_DIR(pe->gptr)) { // TODO: find a file with a global pointer
+    if (pe->gptr != NULL) { // TODO: find a file with a global pointer
         pe->gptr = NULL;
     }
 
     // tls dir
-    if (HAS_DIR(pe->tlst32)) {
+    if (pe->tlst32 != NULL) {
         free(pe->tlst32);
         pe->tlst32 = NULL;
     }
 
     // load config dir
-    if (HAS_DIR(pe->ldcfg32)) {
+    if (pe->ldcfg32 != NULL) {
         free(pe->ldcfg32);
         pe->ldcfg32 = NULL;
     }
 
     // bound import dir
-    if (HAS_DIR(pe->bmprt)) { // TODO: find a file with bound imports
+    if (pe->bmprt != NULL) { // TODO: find a file with bound imports
         pe->bmprt = NULL;
     }
 
     // iat dir
-    if (HAS_DIR(pe->iat)) { // TODO: find documentation on this dir
+    if (pe->iat != NULL) { // TODO: find documentation on this dir
         pe->iat = NULL;
     }
 
     // delay import dir
-    if (HAS_DIR(pe->dmprt)) { // TODO: find a file with delay imports
+    if (pe->dmprt != NULL) { // TODO: find a file with delay imports
         pe->dmprt = NULL;
     }
 
     // clr runtime dir
-    if (HAS_DIR(pe->clr)) { // TODO: find a file with clr runtime
+    if (pe->clr != NULL) { // TODO: find a file with clr runtime
         pe->clr = NULL;
     }
 
