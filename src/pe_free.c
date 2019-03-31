@@ -67,8 +67,8 @@ void pefile_free(struct pefile *pe)
     }
 
     // exceptions dir
-    if (pe->xcpts32 != NULL) {
-        pe->xcpts32 = NULL;
+    if (pe->xcpts != NULL) {
+        pe->xcpts = NULL;
     }
 
     // certificate dir

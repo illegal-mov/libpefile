@@ -589,6 +589,11 @@ struct resource_node {
     struct resource_table    *tbl;   // if dataIsDirectory
 };
 
+struct exception_func_ptr {
+    uint32_t beginPointer;
+    uint32_t size;
+};
+
 struct exception_dir_32 {
     uint32_t beginAddress;
     uint32_t endAddress;
@@ -601,6 +606,14 @@ struct exception_dir_64 {
     uint32_t beginAddress;
     uint32_t endAddress;
     uint32_t unwindInformation;
+};
+
+struct exception_table {
+    struct exception_func_ptr func;
+    union {
+        struct exception_dir_32 entry32;
+        struct exception_dir_64 entry64;
+    };
 };
 
 struct cert_table {
@@ -633,10 +646,7 @@ struct pefile {
     struct export_table       *xprt;
     struct import_table       *mprts;  // array
     struct resource_table     *rsrc;
-    union {
-        struct exception_dir_32   *xcpts32;
-        struct exception_dir_64   *xcpts64;
-    };
+    struct exception_table    *xcpts;
     struct cert_table         *certs;  // array
     struct reloc_table        *relocs; // array
     struct debug_table        *dbgs;   // array

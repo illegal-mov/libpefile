@@ -175,7 +175,7 @@ static struct export_func_ptr* readExportAddressTable(struct pefile *pe, int xpr
         "export function ordinals",
         errBuf);
 
-    // read only one `ord` just to get its rva
+    // fread only one `ord` just to get its rva
     fseek(pe->file, pe->xprt->edir.addressOfFunctions - xprtDiff, SEEK_SET);
     fread(&ords[0].rva, sizeof(ords[0].rva), 1, pe->file);
 

@@ -134,22 +134,45 @@ static void readLoadConfigDir##BITS(struct pefile *pe, char *errBuf)            
 /* Exception directory is a variable length array
  * of 32 bit or 64 bit function table entries
  */
-#define PEFILE_READ_EXCEPTION_DIR(BITS)                                                \
-static void readExceptionDir##BITS(struct pefile *pe, char *errBuf)                    \
-{                                                                                      \
-    int index = pefile_getSectionOfDir(pe, &pe->nt.opt.ddir[PE_DE_EXCEPTION]);         \
-    if (index == PEFILE_NO_SECTION)                                                    \
-        return;                                                                        \
-                                                                                       \
-    int diff = pefile_fixOffset(pe->sctns, index);                                     \
-    fseek(pe->file, pe->nt.opt.ddir[PE_DE_EXCEPTION].virtualAddress - diff, SEEK_SET); \
-    int xcptDirSize = pe->nt.opt.ddir[PE_DE_EXCEPTION].size;                           \
-                                                                                       \
-    pe->xcpts##BITS = pefile_malloc(xcptDirSize, "debug directory", errBuf);           \
-    fread(pe->xcpts##BITS, xcptDirSize, 1, pe->file);                                  \
-                                                                                       \
-    pefile_isTrunc(pe->file, "Exception directory is", errBuf);                        \
-    pe->xcptsLen = xcptDirSize / sizeof(pe->xcpts##BITS[0]);                           \
+#define PEFILE_READ_EXCEPTION_DIR(BITS)                                                  \
+static void readExceptionDir##BITS(struct pefile *pe, char *errBuf)                      \
+{                                                                                        \
+    int index = pefile_getSectionOfDir(pe, &pe->nt.opt.ddir[PE_DE_EXCEPTION]);           \
+    if (index == PEFILE_NO_SECTION)                                                      \
+        return;                                                                          \
+                                                                                         \
+    int diff = pefile_fixOffset(pe->sctns, index);                                       \
+    fseek(pe->file, pe->nt.opt.ddir[PE_DE_EXCEPTION].virtualAddress - diff, SEEK_SET);   \
+    int xcptDirSize = pe->nt.opt.ddir[PE_DE_EXCEPTION].size;                             \
+    int xcptsLen = xcptDirSize / sizeof(pe->xcpts[0].entry##BITS);                       \
+                                                                                         \
+    pe->xcpts = pefile_malloc(xcptsLen * sizeof(pe->xcpts[0]),                           \
+        "debug directory", errBuf);                                                      \
+                                                                                         \
+    /* fread only one entry just to get its rva */                                       \
+    fread(&pe->xcpts[0].entry##BITS, sizeof(pe->xcpts[0].entry##BITS), 1, pe->file);     \
+                                                                                         \
+    /* dirty hack to find `.text` section diff */                                        \
+    struct data_dir temp = {                                                             \
+        .virtualAddress=pe->xcpts[0].entry##BITS.beginAddress,                           \
+        .size=1};                                                                        \
+    index = pefile_getSectionOfDir(pe, &temp);                                           \
+    int codeDiff = pefile_fixOffset(pe->sctns, index);                                   \
+                                                                                         \
+    /* can now get true file offset to exception handler function */                     \
+    uint32_t beginAddr = pe->xcpts[0].entry##BITS.beginAddress;                          \
+    pe->xcpts[0].func.beginPointer = beginAddr - codeDiff;                               \
+    pe->xcpts[0].func.size = pe->xcpts[0].entry##BITS.endAddress - beginAddr;            \
+                                                                                         \
+    for (int i=1; i < xcptsLen; i++) {                                                   \
+        fread(&pe->xcpts[i].entry##BITS, sizeof(pe->xcpts[0].entry##BITS), 1, pe->file); \
+        beginAddr = pe->xcpts[i].entry##BITS.beginAddress;                               \
+        pe->xcpts[i].func.beginPointer = beginAddr - codeDiff;                           \
+        pe->xcpts[i].func.size = pe->xcpts[i].entry##BITS.endAddress - beginAddr;        \
+    }                                                                                    \
+                                                                                         \
+    pefile_isTrunc(pe->file, "Exception directory is", errBuf);                          \
+    pe->xcptsLen = xcptsLen;                                                             \
 }
 
 #endif
