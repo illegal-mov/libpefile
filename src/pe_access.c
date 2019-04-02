@@ -24,14 +24,17 @@ struct resource_node* pefile_getResourceByName(struct resource_table *rsrc, cons
             struct resource_node *rn = &current.rt->branches[current.ndx];
             if (rn->entry.nameIsString) {
 
-                // make  a lower case copy
+                // make a lower case copy
                 wchar_t *resname = rn->rname.name;
-                wchar_t lwr[PEFILE_NAME_RESOURCE_MAX_LEN];
-                for (int i=0; resname[i] != 0; i++)
-                    lwr[i] = towlower(resname[i]);
+                wchar_t lwrRes[PEFILE_NAME_RESOURCE_MAX_LEN] = {0};
+                wchar_t lwrName[PEFILE_NAME_RESOURCE_MAX_LEN] = {0};
+                for (int i=0; resname[i] != 0; i++) {
+                    lwrRes[i] = towlower(resname[i]);
+                    lwrName[i] = towlower(name[i]);
+                }
 
                 // find case-insensitive match
-                if (wcsncmp(lwr, name, PEFILE_NAME_RESOURCE_MAX_LEN) == 0) {
+                if (wcsncmp(lwrRes, lwrName, PEFILE_NAME_RESOURCE_MAX_LEN) == 0) {
                     // clean up any left-over crumbs
                     while (crms != NULL) {
                         struct pefile_crumbs *temp = crms->next;

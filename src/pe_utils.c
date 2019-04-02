@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <wctype.h>
 #include "pe_errors.h"
 #include "pe_utils.h"
 
@@ -27,12 +28,12 @@ int pefile_getSectionOfDir(const struct pefile *pe, const struct data_dir *entry
 /* Adjust offsets when a data directory entry is merged into some section
  * Returns the integer difference between the virtual address and raw address
  */
-int pefile_fixOffset(const struct section_h *sctns, int sctn_ndx)
+int pefile_fixOffset(const struct section_h *sctns, int sctnNdx)
 {
-    assert(sctns[sctn_ndx].virtualAddress >=
-           sctns[sctn_ndx].pointerToRawData);
-    return sctns[sctn_ndx].virtualAddress -
-           sctns[sctn_ndx].pointerToRawData;
+    assert(sctns[sctnNdx].virtualAddress >=
+           sctns[sctnNdx].pointerToRawData);
+    return sctns[sctnNdx].virtualAddress -
+           sctns[sctnNdx].pointerToRawData;
 }
 
 char* pefile_dirToStr(int index)
