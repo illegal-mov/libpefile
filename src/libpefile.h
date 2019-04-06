@@ -1,12 +1,11 @@
 #ifndef LIBPEFILE_H
 #define LIBPEFILE_H
 
-#include "access.h"
-#include "errors.h"
-#include "free.h"
-#include "reader.h"
-#include "struct.h"
-#include "utils.h"
-#include "writer.h"
+#include "pe_struct.h"
+#include "pe_reader.h"
+#include "pe_writer.h"
+#include "pe_access.h"
+#include "pe_errors.h"
+#include "pe_free.h"
 
 #endif
