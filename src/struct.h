@@ -345,8 +345,8 @@ struct optional_common_h {
     uint32_t number_of_rva_and_sizes;
     struct   data_dir ddir[PEFILE_DATA_DIR_LEN];
     union {
-        struct optional_32_h opt32;
-        struct optional_64_h opt64;
+        struct optional_32_h opt_32;
+        struct optional_64_h opt_64;
     };
 };
 
@@ -634,14 +634,19 @@ struct debug_table {
     struct debug_data data;
 };
 
+// TODO: may need 64 bit callbacks?
+struct callback_func_ptr {
+    uint32_t code_ava;
+    uint32_t code_apa;
+};
+
 struct tls_dir {
-    union { // Consider typecast instead of union
-        struct tls_table_32   tlst32;
-        struct tls_table_64   tlst64;
+    union {
+        struct tls_table_32 tlst32;
+        struct tls_table_64 tlst64;
     };
-    // TODO: may need 64 bit callbacks?
-    uint32_t callbacks; // array
-    int      callbacks_len;
+    struct callback_func_ptr *callbacks;     // array
+    int                       callbacks_len;
 };
 
 struct pefile {

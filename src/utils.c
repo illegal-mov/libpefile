@@ -30,7 +30,7 @@ int pefile_get_section_of_dir(
 /* Adjust offsets when a data directory entry is merged into some section
  * Returns the integer difference between the virtual address and raw address
  */
-int pefile_fix_offset(
+int pefile_get_rva_to_apa_diff(
     const struct section_h *sctns,
     int                     section_index)
 {

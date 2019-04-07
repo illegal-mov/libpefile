@@ -155,7 +155,7 @@ void pefile_dump_resource_data(
     const char                     *file_path,
     char                           *err_buf)
 {
-    int diff = pefile_fix_offset(pe->sctns,
+    int diff = pefile_get_rva_to_apa_diff(pe->sctns,
         pefile_get_section_of_dir(pe, &pe->nt.opt.ddir[PE_DE_RESOURCE]));
 
     pefile_dump_data(pe, rm->data_offset - diff, rm->size, file_path, err_buf);

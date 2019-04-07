@@ -28,10 +28,10 @@ static void writeOptionalH(
 
     // write architecture specific fields
     if (pe->nt.opt.magic == PE_OH_32) {
-        fwrite(&pe->nt.opt.opt32, sizeof(pe->nt.opt.opt32), 1, pe->file);
+        fwrite(&pe->nt.opt.opt_32, sizeof(pe->nt.opt.opt_32), 1, pe->file);
         assert(pe->nt.opt.base_address_32 % 0x10000 == 0);
     } else if (pe->nt.opt.magic == PE_OH_64) {
-        fwrite(&pe->nt.opt.opt64, sizeof(pe->nt.opt.opt64), 1, pe->file);
+        fwrite(&pe->nt.opt.opt_64, sizeof(pe->nt.opt.opt_64), 1, pe->file);
         assert(pe->nt.opt.base_address_64 % 0x10000 == 0);
     }
 

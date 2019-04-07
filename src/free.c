@@ -103,6 +103,7 @@ void pefile_free(struct pefile *pe)
 
     // tls dir
     if (pe->tlst != NULL) {
+        free(pe->tlst->callbacks);
         free(pe->tlst);
         pe->tlst = NULL;
     }

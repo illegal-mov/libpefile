@@ -10,7 +10,7 @@
 #include "struct.h"
 #include "utils.h"
 
-static void read_import_desc_name(struct pefile *pe, struct import_table *idata, int diff, char *err_buf);
+static void read_import_desc_name(struct pefile *pe, struct import_table *idata, int rva_to_apa_diff, char *err_buf);
 void (*pefile_error_handler)(int status, char *err_msg) = pefile_exit;
 
 // macro'd 32 and 64 bit versions of the same function
@@ -33,9 +33,18 @@ PEFILE_READ_IMPORT_DIR(32) PEFILE_READ_IMPORT_DIR(64)
  */
 PEFILE_READ_EXCEPTION_DIR(32) PEFILE_READ_EXCEPTION_DIR(64)
 
+/* Get the absolute physical address of the TLS callbacks
+ */
+PEFILE_GET_TLS_CALLBACKS_APA(32) PEFILE_GET_TLS_CALLBACKS_APA(64)
+
+/* Read array of absolute virtual addresses to callback functions.
+ * Returns the length of the array.
+ */
+PEFILE_READ_TLS_CALLBACKS(32) PEFILE_READ_TLS_CALLBACKS(64)
+
 /* Read the TLS directory
  */
-PEFILE_READ_TLS_DIR(32) PEFILE_READ_TLS_DIR(64)
+PEFILE_READ_TLS_DIR(32, ) PEFILE_READ_TLS_DIR(64, l)
 
 /* Read the load config directory
  */
@@ -54,12 +63,12 @@ static int is_all_de_in_file(
     for (int i=0; i < PEFILE_DATA_DIR_LEN; i++) {
         int index = pefile_get_section_of_dir(pe, &pe->nt.opt.ddir[i]);
         if (index != PEFILE_NO_SECTION) {
-            int diff = pefile_fix_offset(pe->sctns, index);
+            int rva_to_apa_diff = pefile_get_rva_to_apa_diff(pe->sctns, index);
             struct data_dir *dd = pe->nt.opt.ddir;
             /* ensure file offset to data directory entry
              * plus that entry's size is less than file size
              */
-            if (dd[i].rva + dd[i].size - diff >= file_size) {
+            if (dd[i].rva + dd[i].size - rva_to_apa_diff >= file_size) {
                 snprintf(err_buf, PEFILE_ERRBUF_LEN, "%s %s",
                     pefile_dir_to_str(i), "is truncated");
                 pefile_error_handler(PEFILE_GENERIC_ERR, err_buf);
@@ -99,10 +108,10 @@ static void read_optional_h(
 
     // read architecture specific fields
     if (pe->nt.opt.magic == PE_OH_32) {
-        fread(&pe->nt.opt.opt32, sizeof(pe->nt.opt.opt32), 1, pe->file);
+        fread(&pe->nt.opt.opt_32, sizeof(pe->nt.opt.opt_32), 1, pe->file);
         assert(pe->nt.opt.base_address_32 % 0x10000 == 0);
     } else if (pe->nt.opt.magic == PE_OH_64) {
-        fread(&pe->nt.opt.opt64, sizeof(pe->nt.opt.opt64), 1, pe->file);
+        fread(&pe->nt.opt.opt_64, sizeof(pe->nt.opt.opt_64), 1, pe->file);
         assert(pe->nt.opt.base_address_64 % 0x10000 == 0);
     } else {
         strcpy(err_buf, "Unknown optional header magic");
@@ -163,7 +172,7 @@ static void read_section_h(
  */
 static uint16_t* read_export_ordinal_table(
     struct pefile *pe,
-    int            diff,
+    int            rva_to_apa_diff,
     char          *err_buf)
 {
     uint32_t number_of_names = pe->xprt->nords_len;
@@ -171,7 +180,7 @@ static uint16_t* read_export_ordinal_table(
         sizeof(nords[0]) * number_of_names,
         "export name ordinals", err_buf);
 
-    fseek(pe->file, pe->xprt->edir.ordinals_rva - diff, SEEK_SET);
+    fseek(pe->file, pe->xprt->edir.ordinals_rva - rva_to_apa_diff, SEEK_SET);
     fread(nords, sizeof(nords[0]), number_of_names, pe->file);
     return nords;
 }
@@ -196,10 +205,10 @@ static struct export_func_ptr* read_export_address_table(
     fseek(pe->file, pe->xprt->edir.functions_rva - xprt_diff, SEEK_SET);
     fread(&ords[0].code_rva, sizeof(ords[0].code_rva), 1, pe->file);
 
-    // dirty hack to find `.text` section diff
+    // dirty hack to find `.text` section rva_to_apa_diff
     struct data_dir temp = {.rva=ords[0].code_rva, .size=1};
     int index = pefile_get_section_of_dir(pe, &temp);
-    int code_diff = pefile_fix_offset(pe->sctns, index);
+    int code_diff = pefile_get_rva_to_apa_diff(pe->sctns, index);
 
     // can now get true file offset to exported functions
     ords[0].code_apa = ords[0].code_rva - code_diff;
@@ -216,10 +225,10 @@ static struct export_func_ptr* read_export_address_table(
 static void read_exported_func_name(
     struct pefile         *pe,
     struct export_by_name *ebn,
-    int                    diff)
+    int                    rva_to_apa_diff)
 {
     long pos = ftell(pe->file);
-    fseek(pe->file, ebn->name_rva - diff, SEEK_SET);
+    fseek(pe->file, ebn->name_rva - rva_to_apa_diff, SEEK_SET);
     fgets(ebn->name, PEFILE_NAME_FUNCTION_MAX_LEN, pe->file);
     fseek(pe->file, pos, SEEK_SET);
 }
@@ -231,7 +240,7 @@ static void read_exported_func_name(
  */
 static struct export_by_name* read_export_names_table(
     struct pefile *pe,
-    int            diff,
+    int            rva_to_apa_diff,
     char          *err_buf)
 {
     uint32_t number_of_names = pe->xprt->names_len;
@@ -239,11 +248,11 @@ static struct export_by_name* read_export_names_table(
         sizeof(names[0]) * number_of_names,
         "export function names", err_buf);
 
-    fseek(pe->file, pe->xprt->edir.names_rva - diff, SEEK_SET);
+    fseek(pe->file, pe->xprt->edir.names_rva - rva_to_apa_diff, SEEK_SET);
     for (uint32_t i=0; i < number_of_names; i++) {
         // get RVA to function name
         fread(&names[i].name_rva, sizeof(names[i].name_rva), 1, pe->file);
-        read_exported_func_name(pe, &names[i], diff);
+        read_exported_func_name(pe, &names[i], rva_to_apa_diff);
     }
 
     return names;
@@ -260,10 +269,10 @@ static void read_export_dir(
     if (index == PEFILE_NO_SECTION)
         return;
 
-    int diff = pefile_fix_offset(pe->sctns, index);
+    int rva_to_apa_diff = pefile_get_rva_to_apa_diff(pe->sctns, index);
 
     pe->xprt = pefile_malloc(sizeof(*pe->xprt), "export directory", err_buf);
-    fseek(pe->file, pe->nt.opt.ddir[PE_DE_EXPORT].rva - diff, SEEK_SET);
+    fseek(pe->file, pe->nt.opt.ddir[PE_DE_EXPORT].rva - rva_to_apa_diff, SEEK_SET);
     fread(&pe->xprt->edir, sizeof(*pe->xprt), 1, pe->file);
 
     pe->xprt->addrs_len = pe->xprt->edir.number_of_functions;
@@ -272,9 +281,9 @@ static void read_export_dir(
 
     pefile_is_trunc(pe->file, "Export directory is", err_buf);
     assert(pe->xprt->edir.characteristics == 0);
-    pe->xprt->addrs = read_export_address_table(pe, diff, err_buf);
-    pe->xprt->nords = read_export_ordinal_table(pe, diff, err_buf);
-    pe->xprt->names = read_export_names_table(pe, diff, err_buf);
+    pe->xprt->addrs = read_export_address_table(pe, rva_to_apa_diff, err_buf);
+    pe->xprt->nords = read_export_ordinal_table(pe, rva_to_apa_diff, err_buf);
+    pe->xprt->names = read_export_names_table(pe, rva_to_apa_diff, err_buf);
 }
 
 /* Read name of the module being imported from
@@ -282,11 +291,11 @@ static void read_export_dir(
 static void read_import_desc_name(
     struct pefile       *pe,
 	struct import_table *idata,
-	int                  diff,
+	int                  rva_to_apa_diff,
 	char                *err_buf)
 {
     long pos = ftell(pe->file);
-    fseek(pe->file, idata->metadata.name - diff, SEEK_SET);
+    fseek(pe->file, idata->metadata.name - rva_to_apa_diff, SEEK_SET);
     fgets(idata->name, PEFILE_NAME_MODULE_MAX_LEN, pe->file);
     pefile_is_trunc(pe->file, "An import descriptor is", err_buf);
     fseek(pe->file, pos, SEEK_SET);
@@ -381,8 +390,8 @@ static void read_resource_dir(
     if (index == PEFILE_NO_SECTION)
         return;
 
-    int diff = pefile_fix_offset(pe->sctns, index);
-    int rsrc_base = pe->nt.opt.ddir[PE_DE_RESOURCE].rva - diff;
+    int rva_to_apa_diff = pefile_get_rva_to_apa_diff(pe->sctns, index);
+    int rsrc_base = pe->nt.opt.ddir[PE_DE_RESOURCE].rva - rva_to_apa_diff;
     int rsrc_offset = 0;
 
     pe->rsrc = pefile_malloc(sizeof(*pe->rsrc),
@@ -439,7 +448,7 @@ static void read_certificate_dir(
     pe->certs = pefile_malloc(sizeof(pe->certs[0]) * cd_max_len,
         "certificate directory", err_buf);
 
-    // no `pefile_fix_offset` here because the certificate directory is weird like that
+    // no `pefile_get_rva_to_apa_diff` here because the certificate directory is weird like that
     fseek(pe->file, pe->nt.opt.ddir[PE_DE_CERTIFICATE].rva, SEEK_SET);
     uint32_t bytes_read = 0, cd_len = 0;
     uint32_t cert_dir_size = pe->nt.opt.ddir[PE_DE_CERTIFICATE].size;
@@ -508,8 +517,8 @@ static void read_relocation_dir(
     if (index == PEFILE_NO_SECTION)
         return;
 
-    int diff = pefile_fix_offset(pe->sctns, index);
-    fseek(pe->file, pe->nt.opt.ddir[PE_DE_RELOCATION].rva - diff, SEEK_SET);
+    int rva_to_apa_diff = pefile_get_rva_to_apa_diff(pe->sctns, index);
+    fseek(pe->file, pe->nt.opt.ddir[PE_DE_RELOCATION].rva - rva_to_apa_diff, SEEK_SET);
 
     int bytes_read = 0, reloc_dir_size = pe->nt.opt.ddir[PE_DE_RELOCATION].size;
 
@@ -563,8 +572,8 @@ static void read_debug_dir(
     if (index == PEFILE_NO_SECTION)
         return;
 
-    int diff = pefile_fix_offset(pe->sctns, index);
-    fseek(pe->file, pe->nt.opt.ddir[PE_DE_DEBUG].rva - diff, SEEK_SET);
+    int rva_to_apa_diff = pefile_get_rva_to_apa_diff(pe->sctns, index);
+    fseek(pe->file, pe->nt.opt.ddir[PE_DE_DEBUG].rva - rva_to_apa_diff, SEEK_SET);
     int dbg_dir_size = pe->nt.opt.ddir[PE_DE_DEBUG].size;
     int dbgs_len = dbg_dir_size / sizeof(pe->dbgs[0].header);
 
@@ -638,15 +647,15 @@ static void read_section_data(
     is_all_de_in_file(pe, err_buf);
 
     if (pe->nt.opt.magic == PE_OH_32) {
-        read_import_dir32(pe, err_buf);
-        read_exception_dir32(pe, err_buf);
-        read_tls_dir32(pe, err_buf);
-        read_load_config_dir32(pe, err_buf);
+        read_import_dir_32(pe, err_buf);
+        read_exception_dir_32(pe, err_buf);
+        read_tls_dir_32(pe, err_buf);
+        read_load_config_dir_32(pe, err_buf);
     } else {
-        read_import_dir64(pe, err_buf);
-        read_exception_dir64(pe, err_buf);
-        read_tls_dir64(pe, err_buf);
-        read_load_config_dir64(pe, err_buf);
+        read_import_dir_64(pe, err_buf);
+        read_exception_dir_64(pe, err_buf);
+        read_tls_dir_64(pe, err_buf);
+        read_load_config_dir_64(pe, err_buf);
     }
 
     read_export_dir(pe, err_buf);
