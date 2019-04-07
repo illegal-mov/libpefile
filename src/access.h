@@ -9,7 +9,7 @@
  */
 struct resource_node* pefile_get_resource_by_name(
     struct resource_table *rsrc,
-	const wchar_t *name);
+    const wchar_t *name);
 
 /* Initialize or reset the data used to
  * traverse the resource directory.
@@ -28,24 +28,24 @@ struct resource_table* pefile_get_next_resource_dir();
  */
 void pefile_dump_data(
     const struct pefile *pe,
-	uint32_t             file_offset,
-	uint32_t             size,
-	const char          *file_path,
-	char                *err_buf);
+    uint32_t             file_offset,
+    uint32_t             size,
+    const char          *file_path,
+    char                *err_buf);
 
 /* Write a resource data entry to a separate file
  */
 void pefile_dump_resource_data(
     const struct pefile            *pe,
-	const struct resource_metadata *rm,
-	const char                     *file_path,
-	char                           *err_buf);
+    const struct resource_metadata *rm,
+    const char                     *file_path,
+    char                           *err_buf);
 
 /* Write an embedded certificate to a separate file
  */
 void pefile_dump_certificate_data(
     const struct cert_table *ct,
-	const char              *file_path,
-	char                    *err_buf);
+    const char              *file_path,
+    char                    *err_buf);
 
 #endif

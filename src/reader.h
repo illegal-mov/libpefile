@@ -7,8 +7,8 @@
  */
 int pefile_init(
     struct pefile  *pe,
-	const char     *path,
-	void          (*fp)(int, char*),
-	char           *err_buf);
+    const char     *path,
+    void          (*fp)(int, char*),
+    char           *err_buf);
 
 #endif

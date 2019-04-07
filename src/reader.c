@@ -290,9 +290,9 @@ static void read_export_dir(
  */
 static void read_import_desc_name(
     struct pefile       *pe,
-	struct import_table *idata,
-	int                  rva_to_apa_diff,
-	char                *err_buf)
+    struct import_table *idata,
+    int                  rva_to_apa_diff,
+    char                *err_buf)
 {
     long pos = ftell(pe->file);
     fseek(pe->file, idata->metadata.name - rva_to_apa_diff, SEEK_SET);
@@ -306,9 +306,9 @@ static void read_import_desc_name(
  */
 static void read_resource_name(
     struct pefile        *pe,
-	struct resource_node *rn,
-	int                   rsrc_base,
-	char                 *err_buf)
+    struct resource_node *rn,
+    int                   rsrc_base,
+    char                 *err_buf)
 {
     long pos = ftell(pe->file);
     fseek(pe->file, rsrc_base + rn->entry.name_offset, SEEK_SET);
@@ -336,9 +336,9 @@ static void read_resource_name(
  */
 static void read_resource_table(
     struct pefile         *pe,
-	struct resource_table *rt,
-	int                    rsrc_addr,
-	char                  *err_buf)
+    struct resource_table *rt,
+    int                    rsrc_addr,
+    char                  *err_buf)
 {
     // read resource header
     fseek(pe->file, rsrc_addr, SEEK_SET);
@@ -362,8 +362,8 @@ static void read_resource_table(
  */
 static void read_resource_metadata(
     struct pefile *pe,
-	struct resource_node *rn,
-	int rsrc_addr)
+    struct resource_node *rn,
+    int rsrc_addr)
 {
     // seek to and read resource metadata
     fseek(pe->file, rsrc_addr, SEEK_SET);
@@ -384,7 +384,7 @@ static void read_resource_metadata(
  */
 static void read_resource_dir(
     struct pefile *pe,
-	char          *err_buf)
+    char          *err_buf)
 {
     int index = pefile_get_section_of_dir(pe, &pe->nt.opt.ddir[PE_DE_RESOURCE]);
     if (index == PEFILE_NO_SECTION)
@@ -437,7 +437,7 @@ static void read_resource_dir(
  */
 static void read_certificate_dir(
     struct pefile *pe,
-	char          *err_buf)
+    char          *err_buf)
 {
     int index = pefile_get_section_of_dir(pe, &pe->nt.opt.ddir[PE_DE_CERTIFICATE]);
     if (index == PEFILE_NO_SECTION)
@@ -490,8 +490,8 @@ static void read_certificate_dir(
 
 static void read_relocation_block(
     struct pefile      *pe,
-	struct reloc_table *relocblock,
-	char               *err_buf)
+    struct reloc_table *relocblock,
+    char               *err_buf)
 {
     // read relocation header to get size of block (header + all entries)
     fread(&relocblock->header, sizeof(relocblock->header), 1, pe->file);
@@ -511,7 +511,7 @@ static void read_relocation_block(
  */
 static void read_relocation_dir(
     struct pefile *pe,
-	char          *err_buf)
+    char          *err_buf)
 {
     int index = pefile_get_section_of_dir(pe, &pe->nt.opt.ddir[PE_DE_RELOCATION]);
     if (index == PEFILE_NO_SECTION)
@@ -550,8 +550,8 @@ static void read_relocation_dir(
  */
 static void read_debug_data(
     struct pefile      *pe,
-	struct debug_table *dbg_table,
-	char               *err_buf)
+    struct debug_table *dbg_table,
+    char               *err_buf)
 {
     long pos = ftell(pe->file);
     fseek(pe->file, dbg_table->header.data_apa, SEEK_SET);
@@ -566,7 +566,7 @@ static void read_debug_data(
  */
 static void read_debug_dir(
     struct pefile *pe,
-	char          *err_buf)
+    char          *err_buf)
 {
     int index = pefile_get_section_of_dir(pe, &pe->nt.opt.ddir[PE_DE_DEBUG]);
     if (index == PEFILE_NO_SECTION)
@@ -595,7 +595,7 @@ static void read_debug_dir(
 /*
 static void read_globalptr_dir(
     struct pefile *pe,
-	char          *err_buf)
+    char          *err_buf)
 {
     int index = pefile_get_section_of_dir(pe, &pe->nt.opt.ddir[PE_DE_GLOBALPTR]);
     if (index == PEFILE_NO_SECTION)
@@ -604,7 +604,7 @@ static void read_globalptr_dir(
 
 static void read_bound_import_dir(
     struct pefile *pe,
-	char          *err_buf)
+    char          *err_buf)
 {
     int index = pefile_get_section_of_dir(pe, &pe->nt.opt.ddir[PE_DE_BOUND_IMPORT]);
     if (index == PEFILE_NO_SECTION)
@@ -613,7 +613,7 @@ static void read_bound_import_dir(
 
 static void read_iat_dir(
     struct pefile *pe,
-	char          *err_buf)
+    char          *err_buf)
 {
     int index = pefile_get_section_of_dir(pe, &pe->nt.opt.ddir[PE_DE_IAT]);
     if (index == PEFILE_NO_SECTION)
@@ -622,7 +622,7 @@ static void read_iat_dir(
 
 static void read_delay_import_dir(
     struct pefile *pe,
-	char          *err_buf)
+    char          *err_buf)
 {
     int index = pefile_get_section_of_dir(pe, &pe->nt.opt.ddir[PE_DE_DELAY_IMPORT]);
     if (index == PEFILE_NO_SECTION)
@@ -631,7 +631,7 @@ static void read_delay_import_dir(
 
 static void read_clr_dir(
     struct pefile *pe,
-	char          *err_buf)
+    char          *err_buf)
 {
     int index = pefile_get_section_of_dir(pe, &pe->nt.opt.ddir[PE_DE_CLR]);
     if (index == PEFILE_NO_SECTION)

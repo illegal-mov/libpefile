@@ -8,9 +8,9 @@
 #define PEFILE_READ_IMPORT_HINT_NAME(BITS, FMT)                            \
 static void read_import_hint_name_##BITS(                                  \
     struct pefile        *pe,                                              \
-	struct import_lookup *il,                                              \
-	int                   rva_to_apa_diff,                                 \
-	char                 *err_buf)                                         \
+    struct import_lookup *il,                                              \
+    int                   rva_to_apa_diff,                                 \
+    char                 *err_buf)                                         \
 {                                                                          \
     /* imports by ordinal have no name, so make this string instead */     \
     if (il->metadata##BITS.is_ordinal) {                                   \
@@ -44,9 +44,9 @@ static void read_import_hint_name_##BITS(                                  \
 #define PEFILE_READ_IMPORT_NAMES_TABLE(BITS)                                         \
 static struct import_lookup* read_import_names_table_##BITS(                         \
     struct pefile *pe,                                                               \
-	int            idt_index,                                                        \
-	int            rva_to_apa_diff,                                                  \
-	char          *err_buf)                                                          \
+    int            idt_index,                                                        \
+    int            rva_to_apa_diff,                                                  \
+    char          *err_buf)                                                          \
 {                                                                                    \
     long pos = ftell(pe->file);                                                      \
     int lookups_len = 0, lookups_max_len = 8; /* ALERT! Arbitrary number */          \
@@ -86,7 +86,7 @@ static struct import_lookup* read_import_names_table_##BITS(                    
 #define PEFILE_READ_IMPORT_DIR(BITS)                                                             \
 static void read_import_dir_##BITS(                                                              \
     struct pefile *pe,                                                                           \
-	char          *err_buf)                                                                      \
+    char          *err_buf)                                                                      \
 {                                                                                                \
     int index = pefile_get_section_of_dir(pe, &pe->nt.opt.ddir[PE_DE_IMPORT]);                   \
     if (index == PEFILE_NO_SECTION)                                                              \
@@ -175,7 +175,7 @@ static int read_tls_callbacks_##BITS(                                       \
 #define PEFILE_READ_TLS_DIR(BITS, FMT)                                      \
 static void read_tls_dir_##BITS(                                            \
     struct pefile *pe,                                                      \
-	char          *err_buf)                                                 \
+    char          *err_buf)                                                 \
 {                                                                           \
     int index = pefile_get_section_of_dir(pe, &pe->nt.opt.ddir[PE_DE_TLS]); \
     if (index == PEFILE_NO_SECTION)                                         \
@@ -222,7 +222,7 @@ static void read_tls_dir_##BITS(                                            \
 #define PEFILE_READ_LOAD_CONFIG_DIR(BITS)                                     \
 static void read_load_config_dir_##BITS(                                      \
     struct pefile *pe,                                                        \
-	char          *err_buf)                                                   \
+    char          *err_buf)                                                   \
 {                                                                             \
     int index = pefile_get_section_of_dir(pe,                                 \
         &pe->nt.opt.ddir[PE_DE_LOAD_CONFIG]);                                 \
@@ -247,7 +247,7 @@ static void read_load_config_dir_##BITS(                                      \
 #define PEFILE_READ_EXCEPTION_DIR(BITS)                                 \
 static void read_exception_dir_##BITS(                                  \
     struct pefile *pe,                                                  \
-	char          *err_buf)                                             \
+    char          *err_buf)                                             \
 {                                                                       \
     int index = pefile_get_section_of_dir(pe,                           \
         &pe->nt.opt.ddir[PE_DE_EXCEPTION]);                             \
