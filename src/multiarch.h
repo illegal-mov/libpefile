@@ -74,7 +74,7 @@ static struct import_lookup* read_import_names_table_##BITS(                    
             sizeof(lookups->metadata##BITS), 1, pe->file);                           \
     }                                                                                \
                                                                                      \
-    pefile_is_trunc(pe->file, "an import lookup is", err_buf);                       \
+    pefile_is_trunc(pe->file, "An import lookup is", err_buf);                       \
     pe->mprts[idt_index].lookups_len = lookups_len;                                  \
     fseek(pe->file, pos, SEEK_SET);                                                  \
     return lookups;                                                                  \
@@ -83,44 +83,45 @@ static struct import_lookup* read_import_names_table_##BITS(                    
 /* Import directory is a variable length array of import descriptors whose
  * length is equal to the number of modules being imported from
  */
-#define PEFILE_READ_IMPORT_DIR(BITS)                                                             \
-static void read_import_dir_##BITS(                                                              \
-    struct pefile *pe,                                                                           \
-    char          *err_buf)                                                                      \
-{                                                                                                \
-    int index = pefile_get_section_of_dir(pe, &pe->nt.opt.ddir[PE_DE_IMPORT]);                   \
-    if (index == PEFILE_NO_SECTION)                                                              \
-        return;                                                                                  \
-                                                                                                 \
-    int rva_to_apa_diff = pefile_get_rva_to_apa_diff(pe->sctns, index);                          \
-    int idt_len = 0, idt_max_len = 4; /* ALERT! Arbitrary number */                              \
-    pe->mprts = pefile_malloc(sizeof(pe->mprts[0]) * idt_max_len,                                \
-        "import directory", err_buf);                                                            \
-    fseek(pe->file, pe->nt.opt.ddir[PE_DE_IMPORT].rva -                                          \
-        rva_to_apa_diff, SEEK_SET);                                                              \
-    fread(&pe->mprts[idt_len].metadata,                                                          \
-        sizeof(pe->mprts->metadata), 1, pe->file);                                               \
-    /* import descriptors are stored as a null-terminated array */                               \
-    struct import_desc null = {0};                                                               \
-    while (memcmp(&pe->mprts[idt_len].metadata, &null, sizeof(null)) != 0) {                     \
-        read_import_desc_name(pe, &pe->mprts[idt_len], rva_to_apa_diff, err_buf);                \
-        /* read array of data about the functions imported from this module */                   \
-        pe->mprts[idt_len].lookups = read_import_names_table_##BITS(pe,                          \
-            idt_len, rva_to_apa_diff, err_buf);                                                  \
-        idt_len++;                                                                               \
-        /* unknown array length, so double memory when space runs out */                         \
-        if (idt_len >= idt_max_len) {                                                            \
-            idt_max_len <<= 1;                                                                   \
-            pe->mprts = pefile_realloc(pe->mprts,                                                \
-                sizeof(pe->mprts[0]) * idt_max_len,                                              \
-                "import directory", err_buf);                                                    \
-        }                                                                                        \
-        fread(&pe->mprts[idt_len].metadata,                                                      \
-            sizeof(pe->mprts->metadata), 1, pe->file);                                           \
-    }                                                                                            \
-                                                                                                 \
-    pefile_is_trunc(pe->file, "Import directory is", err_buf);                                   \
-    pe->mprts_len = idt_len;                                                                     \
+#define PEFILE_READ_IMPORT_DIR(BITS)                                           \
+static void read_import_dir_##BITS(                                            \
+    struct pefile *pe,                                                         \
+    char          *err_buf)                                                    \
+{                                                                              \
+    int index = pefile_get_section_of_dir(pe, &pe->nt.opt.ddir[PE_DE_IMPORT]); \
+    if (index == PEFILE_NO_SECTION)                                            \
+        return;                                                                \
+                                                                               \
+    int rva_to_apa_diff = pefile_get_rva_to_apa_diff(pe->sctns, index);        \
+    int idt_len = 0, idt_max_len = 4; /* ALERT! Arbitrary number */            \
+    pe->mprts = pefile_malloc(sizeof(pe->mprts[0]) * idt_max_len,              \
+        "import directory", err_buf);                                          \
+    fseek(pe->file, pe->nt.opt.ddir[PE_DE_IMPORT].rva -                        \
+        rva_to_apa_diff, SEEK_SET);                                            \
+    fread(&pe->mprts[idt_len].metadata,                                        \
+        sizeof(pe->mprts->metadata), 1, pe->file);                             \
+    /* import descriptors are stored as a null-terminated array */             \
+    struct import_desc null = {0};                                             \
+    while (memcmp(&pe->mprts[idt_len].metadata, &null, sizeof(null)) != 0) {   \
+        read_import_desc_name(pe, &pe->mprts[idt_len],                         \
+            rva_to_apa_diff, err_buf);                                         \
+        /* read array of data about the functions imported from this module */ \
+        pe->mprts[idt_len].lookups = read_import_names_table_##BITS(pe,        \
+            idt_len, rva_to_apa_diff, err_buf);                                \
+        idt_len++;                                                             \
+        /* unknown array length, so double memory when space runs out */       \
+        if (idt_len >= idt_max_len) {                                          \
+            idt_max_len <<= 1;                                                 \
+            pe->mprts = pefile_realloc(pe->mprts,                              \
+                sizeof(pe->mprts[0]) * idt_max_len,                            \
+                "import directory", err_buf);                                  \
+        }                                                                      \
+        fread(&pe->mprts[idt_len].metadata,                                    \
+            sizeof(pe->mprts->metadata), 1, pe->file);                         \
+    }                                                                          \
+                                                                               \
+    pefile_is_trunc(pe->file, "Import directory is", err_buf);                 \
+    pe->mprts_len = idt_len;                                                   \
 }
 
 /* Find absolute physical address to
@@ -219,26 +220,26 @@ static void read_tls_dir_##BITS(                                            \
 /* Load config directory is a single 32 bit
  * or 64 bit load config structure
  */
-#define PEFILE_READ_LOAD_CONFIG_DIR(BITS)                                     \
-static void read_load_config_dir_##BITS(                                      \
-    struct pefile *pe,                                                        \
-    char          *err_buf)                                                   \
-{                                                                             \
-    int index = pefile_get_section_of_dir(pe,                                 \
-        &pe->nt.opt.ddir[PE_DE_LOAD_CONFIG]);                                 \
-    if (index == PEFILE_NO_SECTION)                                           \
-        return;                                                               \
-                                                                              \
-    int rva_to_apa_diff = pefile_get_rva_to_apa_diff(pe->sctns, index);       \
-    fseek(pe->file, pe->nt.opt.ddir[PE_DE_LOAD_CONFIG].rva -                  \
-        rva_to_apa_diff, SEEK_SET);                                           \
-    pe->ldcfg##BITS = pefile_malloc(sizeof(*pe->ldcfg##BITS),                 \
-        "Load config directory", err_buf);                                    \
-    fread(pe->ldcfg##BITS,                                                    \
-        sizeof(*pe->ldcfg##BITS), 1, pe->file);                               \
-    /* according to documentation, this field must always be zero */          \
-    assert(pe->ldcfg##BITS->reserved == 0);                                   \
-    pefile_is_trunc(pe->file, "Load config directory is", err_buf);           \
+#define PEFILE_READ_LOAD_CONFIG_DIR(BITS)                               \
+static void read_load_config_dir_##BITS(                                \
+    struct pefile *pe,                                                  \
+    char          *err_buf)                                             \
+{                                                                       \
+    int index = pefile_get_section_of_dir(pe,                           \
+        &pe->nt.opt.ddir[PE_DE_LOAD_CONFIG]);                           \
+    if (index == PEFILE_NO_SECTION)                                     \
+        return;                                                         \
+                                                                        \
+    int rva_to_apa_diff = pefile_get_rva_to_apa_diff(pe->sctns, index); \
+    fseek(pe->file, pe->nt.opt.ddir[PE_DE_LOAD_CONFIG].rva -            \
+        rva_to_apa_diff, SEEK_SET);                                     \
+    pe->ldcfg##BITS = pefile_malloc(sizeof(*pe->ldcfg##BITS),           \
+        "Load config directory", err_buf);                              \
+    fread(pe->ldcfg##BITS,                                              \
+        sizeof(*pe->ldcfg##BITS), 1, pe->file);                         \
+    /* according to documentation, this field must always be zero */    \
+    assert(pe->ldcfg##BITS->reserved == 0);                             \
+    pefile_is_trunc(pe->file, "Load config directory is", err_buf);     \
 }
 
 /* Exception directory is a variable length array

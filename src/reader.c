@@ -108,10 +108,12 @@ static void read_optional_h(
 
     // read architecture specific fields
     if (pe->nt.opt.magic == PE_OH_32) {
-        fread(&pe->nt.opt.opt_32, sizeof(pe->nt.opt.opt_32), 1, pe->file);
+        fread(&pe->nt.opt.opt_32,
+            sizeof(pe->nt.opt.opt_32), 1, pe->file);
         assert(pe->nt.opt.base_address_32 % 0x10000 == 0);
     } else if (pe->nt.opt.magic == PE_OH_64) {
-        fread(&pe->nt.opt.opt_64, sizeof(pe->nt.opt.opt_64), 1, pe->file);
+        fread(&pe->nt.opt.opt_64,
+            sizeof(pe->nt.opt.opt_64), 1, pe->file);
         assert(pe->nt.opt.base_address_64 % 0x10000 == 0);
     } else {
         strcpy(err_buf, "Unknown optional header magic");
@@ -126,7 +128,7 @@ static void read_optional_h(
 
     pefile_is_trunc(pe->file, "Optional header is", err_buf);
 
-    /* assert facts about fields because Microsoft documentation said so */
+    // assert facts about fields because Microsoft documentation said so
     assert(pe->nt.opt.section_alignment >= pe->nt.opt.file_alignment);
     assert(pe->nt.opt.win32_version == 0);
     assert(pe->nt.opt.image_size % pe->nt.opt.section_alignment == 0);
@@ -197,27 +199,27 @@ static struct export_func_ptr* read_export_address_table(
     char          *err_buf)
 {
     uint32_t number_of_functions = pe->xprt->addrs_len;
-    struct export_func_ptr *ords = pefile_malloc(
-        sizeof(ords[0]) * number_of_functions,
+    struct export_func_ptr *addrs = pefile_malloc(
+        sizeof(addrs[0]) * number_of_functions,
         "export function ordinals", err_buf);
 
     // fread only one `ord` just to get its rva
     fseek(pe->file, pe->xprt->edir.functions_rva - xprt_diff, SEEK_SET);
-    fread(&ords[0].code_rva, sizeof(ords[0].code_rva), 1, pe->file);
+    fread(&addrs[0].code_rva, sizeof(addrs[0].code_rva), 1, pe->file);
 
     // dirty hack to find `.text` section rva_to_apa_diff
-    struct data_dir temp = {.rva=ords[0].code_rva, .size=1};
+    struct data_dir temp = {.rva=addrs[0].code_rva, .size=1};
     int index = pefile_get_section_of_dir(pe, &temp);
     int code_diff = pefile_get_rva_to_apa_diff(pe->sctns, index);
 
     // can now get true file offset to exported functions
-    ords[0].code_apa = ords[0].code_rva - code_diff;
+    addrs[0].code_apa = addrs[0].code_rva - code_diff;
     for (uint32_t i=1; i < number_of_functions; i++) {
-        fread(&ords[i].code_rva, sizeof(ords[0].code_rva), 1, pe->file);
-        ords[i].code_apa = ords[i].code_rva - code_diff;
+        fread(&addrs[i].code_rva, sizeof(addrs[0].code_rva), 1, pe->file);
+        addrs[i].code_apa = addrs[i].code_rva - code_diff;
     }
 
-    return ords;
+    return addrs;
 }
 
 /* Reads the name of the exported function.
@@ -275,12 +277,13 @@ static void read_export_dir(
     fseek(pe->file, pe->nt.opt.ddir[PE_DE_EXPORT].rva - rva_to_apa_diff, SEEK_SET);
     fread(&pe->xprt->edir, sizeof(*pe->xprt), 1, pe->file);
 
+    pefile_is_trunc(pe->file, "Export directory is", err_buf);
+    assert(pe->xprt->edir.characteristics == 0);
+
     pe->xprt->addrs_len = pe->xprt->edir.number_of_functions;
     pe->xprt->nords_len = pe->xprt->edir.number_of_names;
     pe->xprt->names_len = pe->xprt->edir.number_of_names;
 
-    pefile_is_trunc(pe->file, "Export directory is", err_buf);
-    assert(pe->xprt->edir.characteristics == 0);
     pe->xprt->addrs = read_export_address_table(pe, rva_to_apa_diff, err_buf);
     pe->xprt->nords = read_export_ordinal_table(pe, rva_to_apa_diff, err_buf);
     pe->xprt->names = read_export_names_table(pe, rva_to_apa_diff, err_buf);
@@ -665,9 +668,9 @@ static void read_section_data(
     read_debug_dir(pe, err_buf);
 //  read_architecture_dir(pe, err_buf); // unused, always zero
 //  read_globalptr_dir(pe, err_buf);    // TODO: find a file with a global pointer
-//  read_bound_import_dir(pe, err_buf);  // TODO: find a file with bound imports
+//  read_bound_import_dir(pe, err_buf); // TODO: find a file with bound imports
 //  read_iat_dir(pe, err_buf);          // TODO: find documentation on this dir
-//  read_delay_import_dir(pe, err_buf);  // TODO: find a file with delay imports
+//  read_delay_import_dir(pe, err_buf); // TODO: find a file with delay imports
 //  read_clr_dir(pe, err_buf);          // TODO: find a file with clr runtime
 }
 

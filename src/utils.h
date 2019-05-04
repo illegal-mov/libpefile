@@ -59,13 +59,13 @@ void* pefile_realloc(
  */
 void pefile_breadcrumb_push(
     struct pefile_crumbs **root,
-    struct pefile_crumbs  *temp);
+    struct pefile_crumbs  *top);
 
 /* Pop a breadcrumb from the top of the breadcrumb stack
  * This is used when walking the resource directory
  */
 void pefile_breadcrumb_pop(
     struct pefile_crumbs **root,
-    struct pefile_crumbs  *temp);
+    struct pefile_crumbs  *ret);
 
 #endif

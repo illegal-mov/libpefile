@@ -37,37 +37,37 @@ struct tls_table_##BITS {           \
     uint32_t       characteristics; \
 };
 
-#define STRUCT_LOAD_CONFIG(BITS)                   \
-struct load_config_##BITS {                        \
-    uint32_t       characteristics;                \
-    uint32_t       timestamp;                      \
-    uint16_t       version_major;                  \
-    uint16_t       version_minor;                  \
-    uint32_t       globalFlagsClear;               \
-    uint32_t       globalFlagsSet;                 \
-    uint32_t       criticalSectionDefaultTimeout;  \
-    uint##BITS##_t deCommitFreeBlockThreshold;     \
-    uint##BITS##_t deCommitTotalFreeThreshold;     \
-    uint##BITS##_t lockPrefixTable;                \
-    uint##BITS##_t maximumAllocationSize;          \
-    uint##BITS##_t virtualMemoryThreshold;         \
-    uint##BITS##_t processAffinityMask;            \
-    uint32_t       processHeapFlags;               \
-    uint16_t       csdVersion;                     \
-    uint16_t       reserved;                       \
-    uint##BITS##_t editList;                       \
-    uint##BITS##_t securityCookie;                 \
-    uint##BITS##_t seHandlerTable;                 \
-    uint##BITS##_t guardCfCheckFunctionPointer;    \
-    uint##BITS##_t guardCfDispatchFunctionPointer; \
-    uint##BITS##_t guardCfFunctionTable;           \
-    uint##BITS##_t guardCfFunctionCount;           \
-    uint32_t       guardFlags;                     \
-    char           codeIntegrity[12];              \
-    uint##BITS##_t guardAddressTakenIatEntryTable; \
-    uint##BITS##_t guardAddressTakenIatEntryCount; \
-    uint##BITS##_t guardLongJumpTargetTable;       \
-    uint##BITS##_t guardLongJumpTargetCount;       \
+#define STRUCT_LOAD_CONFIG(BITS)                        \
+struct load_config_##BITS {                             \
+    uint32_t       characteristics;                     \
+    uint32_t       timestamp;                           \
+    uint16_t       version_major;                       \
+    uint16_t       version_minor;                       \
+    uint32_t       global_flags_clear;                  \
+    uint32_t       global_flags_set;                    \
+    uint32_t       critical_section_default_timeout;    \
+    uint##BITS##_t de_commit_free_block_threshold;      \
+    uint##BITS##_t de_commit_total_free_threshold;      \
+    uint##BITS##_t lock_prefix_table;                   \
+    uint##BITS##_t maximum_allocation_size;             \
+    uint##BITS##_t virtual_memory_threshold;            \
+    uint##BITS##_t process_affinity_mask;               \
+    uint32_t       process_heap_flags;                  \
+    uint16_t       csd_version;                         \
+    uint16_t       reserved;                            \
+    uint##BITS##_t edit_list;                           \
+    uint##BITS##_t security_cookie;                     \
+    uint##BITS##_t se_handler_table;                    \
+    uint##BITS##_t guard_cf_check_function_pointer;     \
+    uint##BITS##_t guard_cf_dispatch_function_pointer;  \
+    uint##BITS##_t guard_cf_function_table;             \
+    uint##BITS##_t guard_cf_function_count;             \
+    uint32_t       guard_flags;                         \
+    char           code_integrity[12];                  \
+    uint##BITS##_t guard_address_taken_iat_entry_table; \
+    uint##BITS##_t guard_address_taken_iat_entry_count; \
+    uint##BITS##_t guard_long_jump_target_table;        \
+    uint##BITS##_t guard_long_jump_target_count;        \
 };
 
 enum optional_magic {
@@ -482,7 +482,7 @@ struct resource_entry {
             uint32_t has_name_string : 1;
         };
         uint32_t name;
-        uint16_t id;
+        uint16_t id; // TODO: this ID identifies resource type only at root level
     };
     union { // dir ptr or data ptr
         uint32_t data_offset;
@@ -544,7 +544,7 @@ struct import_table {
     char                  name[PEFILE_NAME_MODULE_MAX_LEN];
     struct import_desc    metadata;
     struct import_lookup *lookups; // array
-    int                   lookups_len;
+    unsigned int          lookups_len;
 };
 
 /* offset to the exported function name and the name itself */
@@ -563,15 +563,15 @@ struct export_table {
     struct export_func_ptr *addrs;     // address_of_function (Indexed by Ordinals)
     uint16_t               *nords;     // name_ordinal (array of WORDs)
     struct export_by_name  *names;     // array
-    int                     addrs_len;
-    int                     nords_len;
-    int                     names_len;
+    unsigned int            addrs_len;
+    unsigned int            nords_len;
+    unsigned int            names_len;
 };
 
 struct resource_table {
     struct resource_header  header;
     struct resource_node   *nodes;     // array
-    int                     nodes_len;
+    unsigned int            nodes_len;
 };
 
 struct resource_name {
@@ -621,7 +621,7 @@ struct cert_table {
 struct reloc_table {
     struct relocation_header  header;
     struct relocation_entry  *entries; // array
-    int                       entries_len;
+    unsigned int              entries_len;
 };
 
 struct debug_data {
@@ -646,7 +646,7 @@ struct tls_dir {
         struct tls_table_64 tlst64;
     };
     struct callback_func_ptr *callbacks;     // array
-    int                       callbacks_len;
+    unsigned int              callbacks_len;
 };
 
 struct pefile {
@@ -673,11 +673,11 @@ struct pefile {
     struct iat_data           *iat;    // TODO: find documentation on this dir
     struct delay_import       *dmprt;  // TODO: find a file with delay imports
     struct clr_data           *clr;    // TODO: find a file with clr runtime
-    int mprts_len;
-    int xcpts_len;
-    int certs_len;
-    int relocs_len;
-    int dbgs_len;
+    unsigned int mprts_len;
+    unsigned int xcpts_len;
+    unsigned int certs_len;
+    unsigned int relocs_len;
+    unsigned int dbgs_len;
 };
 
 #endif

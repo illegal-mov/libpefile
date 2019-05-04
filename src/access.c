@@ -10,6 +10,27 @@
 // internal resource iterator data for `getNextResource`
 static struct pefile_crumbs *crms = NULL, current = {0};
 
+/* Returns 1 if the file is 32 bit, else 0
+ */
+int pefile_is_32_bit(const struct pefile *pe)
+{
+    return pe->nt.opt.magic == PE_OH_32;
+}
+
+/* Returns 1 if the file is 64 bit, else 0
+ */
+int pefile_is_64_bit(const struct pefile *pe)
+{
+    return pe->nt.opt.magic == PE_OH_64;
+}
+
+/* Returns 1 if the IS_DLL bit is set, else 0
+ */
+int pefile_is_dll(const struct pefile *pe)
+{
+    return (pe->nt.file.characteristics & PE_FC_IS_DLL) != 0;
+}
+
 /* Get a pointer to a resource node that has the given name.
  * Returns NULL if no resource node is found.
  */

@@ -27,8 +27,9 @@ int pefile_get_section_of_dir(
     return PEFILE_NO_SECTION; // -1
 }
 
-/* Adjust offsets when a data directory entry is merged into some section
- * Returns the integer difference between the virtual address and raw address
+/* Adjust offsets when a data directory entry is merged into some section.
+ * Is used to convert a Relative Virtual Address into an Absolute Physical Address.
+ * Returns the integer difference between the virtual address and raw address.
  */
 int pefile_get_rva_to_apa_diff(
     const struct section_h *sctns,
@@ -114,15 +115,15 @@ void pefile_is_trunc(
     }
 }
 
-/* Push a breadcrumb on top of the breadcrumb stack
+/* Push a breadcrumb to the top of the breadcrumb stack
  * This is used when walking the resource directory
  */
 void pefile_breadcrumb_push(
     struct pefile_crumbs **root,
-    struct pefile_crumbs  *temp)
+    struct pefile_crumbs  *top)
 {
     struct pefile_crumbs *bcnew = malloc(sizeof(*bcnew));
-    memcpy(bcnew, temp, sizeof(*temp));
+    memcpy(bcnew, top, sizeof(*top));
     bcnew->next = *root;
     *root = bcnew;
 }
@@ -132,11 +133,11 @@ void pefile_breadcrumb_push(
  */
 void pefile_breadcrumb_pop(
     struct pefile_crumbs **root,
-    struct pefile_crumbs  *temp)
+    struct pefile_crumbs  *ret)
 {
     struct pefile_crumbs *top = *root;
     *root = top->next;
-    memcpy(temp, top, sizeof(*temp));
+    memcpy(ret, top, sizeof(*ret));
     free(top);
 }
 

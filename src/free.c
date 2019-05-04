@@ -51,7 +51,7 @@ void pefile_free(struct pefile *pe)
 
     // import dir
     if (pe->mprts != NULL) {
-        for (int i=0; i < pe->mprts_len; i++) {
+        for (unsigned int i=0; i < pe->mprts_len; i++) {
             free(pe->mprts[i].lookups);
             i++;
         }
@@ -73,7 +73,7 @@ void pefile_free(struct pefile *pe)
 
     // certificate dir
     if (pe->certs != NULL) {
-        for (int i=0; i < pe->certs_len; i++)
+        for (unsigned int i=0; i < pe->certs_len; i++)
             free(pe->certs[i].data);
         free(pe->certs);
         pe->certs = NULL;
@@ -81,7 +81,7 @@ void pefile_free(struct pefile *pe)
 
     // relocation dir
     if (pe->relocs != NULL) {
-        for (int i=0; i < pe->relocs_len; i++)
+        for (unsigned int i=0; i < pe->relocs_len; i++)
             free(pe->relocs[i].entries);
         free(pe->relocs);
         pe->relocs = NULL;
