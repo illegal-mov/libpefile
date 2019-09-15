@@ -17,7 +17,7 @@ static void read_import_hint_name_##BITS(                                  \
         il->function_name.hint = 0;                                        \
         snprintf(il->function_name.name,                                   \
             PEFILE_NAME_FUNCTION_MAX_LEN,                                  \
-            "Ordinal: %.*"#FMT"x", BITS / 4,                               \
+            "Ordinal: 0x%.*"#FMT"x", BITS / 4,                             \
             /* %lx does not play nice with bit fields,                     \
              * so do this crazy bitwise junk instead.                      \
              * Cast -1 to an unsigned int to get all 0xF,                  \
@@ -235,8 +235,13 @@ static void read_load_config_dir_##BITS(                                \
         rva_to_apa_diff, SEEK_SET);                                     \
     pe->ldcfg##BITS = pefile_malloc(sizeof(*pe->ldcfg##BITS),           \
         "Load config directory", err_buf);                              \
-    fread(pe->ldcfg##BITS,                                              \
-        sizeof(*pe->ldcfg##BITS), 1, pe->file);                         \
+    memset(pe->ldcfg##BITS, 0, sizeof(*pe->ldcfg##BITS));               \
+    /* LoadConfig is often intentionally truncated, so read             \
+     * smaller of data directory size and struct size */                \
+    size_t ddirSize = pe->nt.opt.ddir[PE_DE_LOAD_CONFIG].size;          \
+    size_t ldcfgSize = (ddirSize < sizeof(*pe->ldcfg##BITS)) ?          \
+        ddirSize : sizeof(*pe->ldcfg##BITS);                            \
+    fread(pe->ldcfg##BITS, ldcfgSize, 1, pe->file);                     \
     /* according to documentation, this field must always be zero */    \
     assert(pe->ldcfg##BITS->reserved == 0);                             \
     pefile_is_trunc(pe->file, "Load config directory is", err_buf);     \

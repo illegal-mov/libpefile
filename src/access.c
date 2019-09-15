@@ -8,7 +8,7 @@
 #include "errors.h"
 
 // internal resource iterator data for `getNextResource`
-static struct pefile_crumbs *crms = NULL, current = {0};
+static struct pefile_crumbs *s_crms = NULL, s_current = {0};
 
 /* Returns 1 if the file is 32 bit, else 0
  */
@@ -50,7 +50,7 @@ struct resource_node* pefile_get_resource_by_name(
             struct resource_node *rn = &current.res_table->nodes[current.index];
             if (rn->entry.has_name_string) {
 
-                // make a lower case copy
+                // make lower case copies of both resource name and function argument
                 wchar_t *resname = rn->res_name.name;
                 wchar_t lwrRes[PEFILE_NAME_RESOURCE_MAX_LEN] = {0};
                 wchar_t lwres_name[PEFILE_NAME_RESOURCE_MAX_LEN] = {0};
@@ -98,14 +98,14 @@ struct resource_table* pefile_init_resource_walker(
         return NULL;
 
     // free any pre-existing crumbs
-    while (crms != NULL) {
-        struct pefile_crumbs *temp = crms->next;
-        free(crms);
-        crms = temp;
+    while (s_crms != NULL) {
+        struct pefile_crumbs *temp = s_crms->next;
+        free(s_crms);
+        s_crms = temp;
     }
 
-    memset(&current, 0, sizeof(current));
-    current.res_table = rsrc;
+    memset(&s_current, 0, sizeof(s_current));
+    s_current.res_table = rsrc;
     return rsrc;
 }
 
@@ -116,28 +116,41 @@ struct resource_table* pefile_init_resource_walker(
  */
 struct resource_table* pefile_get_next_resource_dir()
 {
-    if (current.res_table == NULL)
+    if (s_current.res_table == NULL)
         return NULL;
 
     do {
-        current.array_len = current.res_table->header.number_of_named_entries +
-                        current.res_table->header.number_of_id_entries;
-        for (current.index=0; current.index < current.array_len; current.index++) {
-            struct resource_node *rn = &current.res_table->nodes[current.index];
+        s_current.array_len = s_current.res_table->header.number_of_named_entries +
+                              s_current.res_table->header.number_of_id_entries;
+        for (s_current.index=0; s_current.index < s_current.array_len; s_current.index++) {
+            struct resource_node *rn = &s_current.res_table->nodes[s_current.index];
             if (rn->entry.is_directory) {
-                pefile_breadcrumb_push(&crms, &current);
-                current.res_table = rn->table;
-                return current.res_table;
+                pefile_breadcrumb_push(&s_crms, &s_current);
+                s_current.res_table = rn->table;
+                return s_current.res_table;
             } else {
-                pefile_breadcrumb_pop(&crms, &current);
+                pefile_breadcrumb_pop(&s_crms, &s_current);
             }
 
-            if (current.index == current.array_len - 1)
-                pefile_breadcrumb_pop(&crms, &current);
+            if (s_current.index == s_current.array_len - 1) {
+                pefile_breadcrumb_pop(&s_crms, &s_current);
+            }
         }
-    } while (crms != NULL);
+    } while (s_crms != NULL);
 
     return NULL;
+}
+
+/* Get the current depth of the resource walker's position
+ * by counting the length of the crumbs list which is just
+ * the number of parent directories.
+ */
+int pefile_get_resource_walker_depth()
+{
+    int depth = 0;
+    struct pefile_crumbs *iter = s_crms;
+    for (; iter != NULL; iter = iter->next, depth++);
+    return depth;
 }
 
 /* Generic data dump function
@@ -156,16 +169,19 @@ void pefile_dump_data(
     }
 
     fseek(pe->file, file_offset, SEEK_SET);
-    char buf[4096]; // ALERT! Arbitrary number
+
     // write resource data a chunk of `buf` at a time
+    char buf[4096]; // ALERT! Arbitrary number
     while (size > sizeof(buf)) {
-        fread(buf, sizeof(buf), 1, pe->file);
-        fwrite(buf, sizeof(buf), 1, dump);
+        fread(buf, 1, sizeof(buf), pe->file);
+        fwrite(buf, 1, sizeof(buf), dump);
         size -= sizeof(buf);
     }
+
     // write remaining bytes that partially fill `buf`
-    fread(buf, size, 1, pe->file);
-    fwrite(buf, size, 1, dump);
+    fread(buf, 1, size, pe->file);
+    fwrite(buf, 1, size, dump);
+    fflush(dump); // force immediate write
 }
 
 /* Write a resource data entry to a separate file

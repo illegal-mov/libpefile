@@ -1,17 +1,23 @@
 # Job Vranish (2016)
+.SILENT:
+
 TARGET_EXEC ?= a.out
 
-TEST_DIRS ?= ./tests
+TOOL_DIRS ?= ./tool
+TEST_DIRS ?= ./test
 BUILD_DIR ?= ./build~
 SRC_DIRS ?= ./src
 
 MKDIR_P ?= mkdir -p
 
-SRCS := $(shell find -name '*_main.cpp' -or -name '*_main.c' -or -name '*_main.s')
-SRCS += $(shell find $(SRC_DIRS) -name '*.cpp' -or -name '*.c' -or -name '*.s')
+SRCS := $(shell find $(SRC_DIRS) -name '*.cpp' -or -name '*.c' -or -name '*.s')
 TEST := $(shell find $(TEST_DIRS) -name '*.cpp' -or -name '*.c' -or -name '*.s')
+TOOL := $(shell find $(TOOL_DIRS) -name '*.cpp' -or -name '*.c' -or -name '*.s')
 OBJS := $(SRCS:%=$(BUILD_DIR)/%.o)
 OBJS_TEST := $(TEST:%=$(BUILD_DIR)/%.o)
+OBJS_TEST += $(OBJS)
+OBJS_TOOL := $(TOOL:%=$(BUILD_DIR)/%.o)
+OBJS_TOOL += $(OBJS)
 
 INC_DIRS := $(shell find $(SRC_DIRS) -type d)
 INC_FLAGS := $(addprefix -I,$(INC_DIRS))
@@ -41,7 +47,12 @@ $(BUILD_DIR)/%.cpp.o: %.cpp
 clean:
 	$(RM) -r $(BUILD_DIR)
 
+.PHONY: tool
+tool: $(OBJS_TOOL)
+	$(MKDIR_P) $(dir $@)
+	$(CC) $(OBJS_TOOL) -o $(BUILD_DIR)/$@/$(TARGET_EXEC) $(LDFLAGS)
+
 .PHONY: test
 test: $(OBJS_TEST)
-	$(CC) $(OBJS_TEST) -o $(BUILD_DIR)/$@ $(LDFLAGS)
-
+	$(MKDIR_P) $(dir $@)
+	$(CC) $(OBJS_TEST) -o $(BUILD_DIR)/$@/$(TARGET_EXEC) $(LDFLAGS)

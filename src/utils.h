@@ -11,6 +11,56 @@ struct pefile_crumbs {
     struct pefile_crumbs *next;
 };
 
+/* Get human-readable name of DOS header field by index
+ */
+const char* pefile_field_name_dos(
+    int index);
+
+/* Get human-readable name of File header field by index
+ */
+const char* pefile_field_name_file(
+    int index);
+
+/* Get human-readable name of File header characteristic bit by index
+ */
+const char* pefile_characteristics_name_file(
+    int index);
+
+/* Get human-readable name of Optional header field by index
+ */
+const char* pefile_field_name_optional(
+    int index);
+
+/* Get human-readable name of Optional header characteristic bit by index
+ */
+const char* pefile_characteristics_name_optional(
+    int index);
+
+/* Get human-readable name of Section header field by index
+ */
+const char* pefile_field_name_section(
+    int index);
+
+/* Get human-readable name of Section header characteristic bit by index
+ */
+const char* pefile_characteristics_name_section(
+    int index);
+
+/* Get human-readable name of Section header characteristics alignment by nybble
+ */
+const char* pefile_characteristics_alignment_name_section(
+    int alignNybble);
+
+/* Get human-readable name of Debug directory field by index
+ */
+const char* pefile_field_name_debug_dir(
+    int index);
+
+/* Get human-readable name of Load Config directory field by index
+ */
+const char* pefile_field_name_loadconfig_dir(
+    int index);
+
 /* Get index of the section a directory entry was merged into.
  * Returns the index of the relevant section or PEFILE_NO_SECTION if not found.
  */

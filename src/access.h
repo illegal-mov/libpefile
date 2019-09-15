@@ -36,6 +36,12 @@ struct resource_table* pefile_init_resource_walker(
  */
 struct resource_table* pefile_get_next_resource_dir();
 
+/* Get the current depth of the resource walker's position
+ * by counting the length of the crumbs list which is just
+ * the number of parent directories.
+ */
+int pefile_get_resource_walker_depth();
+
 /* Generic data dump function
  */
 void pefile_dump_data(

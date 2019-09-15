@@ -14,6 +14,12 @@
 #define PEFILE_SIG_LEN_DOS 2
 #define PEFILE_SIG_LEN_NT 4
 
+#define PEFILE_FC_NUM_FIELDS 16
+#define PEFILE_OC_NUM_FIELDS 16
+#define PEFILE_SC_NUM_FIELDS 32
+
+#define PEFILE_SC_ALIGN_NYBBLE 0x00F00000
+
 /* metadata about the imported function */
 #define STRUCT_THUNK_DATA(BITS)                \
 struct thunk_data_##BITS {                     \
@@ -58,6 +64,7 @@ struct load_config_##BITS {                             \
     uint##BITS##_t edit_list;                           \
     uint##BITS##_t security_cookie;                     \
     uint##BITS##_t se_handler_table;                    \
+    uint##BITS##_t se_handler_count;                    \
     uint##BITS##_t guard_cf_check_function_pointer;     \
     uint##BITS##_t guard_cf_dispatch_function_pointer;  \
     uint##BITS##_t guard_cf_function_table;             \
@@ -70,12 +77,218 @@ struct load_config_##BITS {                             \
     uint##BITS##_t guard_long_jump_target_count;        \
 };
 
-enum optional_magic {
-    PE_OH_32=0x10B,
-    PE_OH_64=0x20B,
+enum pefile_fields_dos_h {
+    PE_DH_MAGIC,
+    PE_DH_CBLP,
+    PE_DH_CP,
+    PE_DH_CRLC,
+    PE_DH_CPARHDR,
+    PE_DH_MINALLOC,
+    PE_DH_MAXALLOC,
+    PE_DH_SS,
+    PE_DH_SP,
+    PE_DH_CSUM,
+    PE_DH_IP,
+    PE_DH_CS,
+    PE_DH_LFARLC,
+    PE_DH_OVNO,
+    PE_DH_RES,
+    PE_DH_OEMID,
+    PE_DH_OEMINFO,
+    PE_DH_RES2,
+    PE_DH_LFANEW,
 };
 
-enum directory_entries {
+enum pefile_fields_file_h {
+    PE_FH_MACHINE,
+    PE_FH_NUMSEC,
+    PE_FH_TIMESTAMP,
+    PE_FH_SYMPTR,
+    PE_FH_NUMSYM,
+    PE_FH_OPTHDRSIZE,
+    PE_FH_CHARACT,
+};
+
+enum pefile_fields_optional_h {
+    PE_OH_MAGIC,
+    PE_OH_LINKVERMAJ,
+    PE_OH_LINKVERMIN,
+    PE_OH_CODESIZE,
+    PE_OH_INITSIZE,
+    PE_OH_UNINITSIZE,
+    PE_OH_ENTRYPTR,
+    PE_OH_CODEPTR,
+    PE_OH_DATAPTR,
+    PE_OH_BASEADDR,
+    PE_OH_SECALIGN,
+    PE_OH_FILEALIGN,
+    PE_OH_OSVERMAJ,
+    PE_OH_OSVERMIN,
+    PE_OH_IMGVERMAJ,
+    PE_OH_IMGVERMIN,
+    PE_OH_SYSVERMAJ,
+    PE_OH_SYSVERMIN,
+    PE_OH_WINVER,
+    PE_OH_IMGSIZE,
+    PE_OH_HDRSIZE,
+    PE_OH_CHECKSUM,
+    PE_OH_SUBSYS,
+    PE_OH_DLLCHARACT,
+    PE_OH_STACKRESSIZE,
+    PE_OH_STACKCOMSIZE,
+    PE_OH_HEAPRESSIZE,
+    PE_OH_HEAPCOMSIZE,
+    PE_OH_LDRFLAGS,
+    PE_OH_DDIRLEN,
+    PE_OH_DATADIR,
+};
+
+enum pefile_fields_section_h {
+    PE_SH_NAME,
+    PE_SH_MEMSIZE,
+    PE_SH_DATAPTR,
+    PE_SH_DISKSIZE,
+    PE_SH_DATAOFFS,
+    PE_SH_RELOCPTR,
+    PE_SH_LNNUMPTR,
+    PE_SH_NUMRELOC,
+    PE_SH_NUMLNNUM,
+    PE_SH_CHARACT,
+};
+
+enum pefile_fields_dbg_dir {
+    PE_DD_CHARACT,
+    PE_DD_TIMESTAMP,
+    PE_DD_DBGVERMAJ,
+    PE_DD_DBGVERMIN,
+    PE_DD_DBGTYPE,
+    PE_DD_DISKSIZE,
+    PE_DD_DATAPTR,
+    PE_DD_DATAOFFS,
+};
+
+enum pefile_fields_loadconfig_dir {
+    PE_LD_CHARACT,
+    PE_LD_TIMESTAMP,
+    PE_LD_VERMAJ,
+    PE_LD_VERMIN,
+    PE_LD_FLAGSCLEAR,
+    PE_LD_FLAGSSET,
+    PE_LD_TIMEOUT,
+    PE_LD_MEMFREE,
+    PE_LD_TOTALMEM,
+    PE_LD_LOCKPTR,
+    PE_LD_MAXALLOC,
+    PE_LD_MINALLOC,
+    PE_LD_AFFINITY,
+    PE_LD_HEAPFLAGS,
+    PE_LD_SERVPACKID,
+    PE_LD_RESERVED,
+    PE_LD_EDITLIST,
+    PE_LD_COOKIEPTR,
+    PE_LD_EXCEPTPTR,
+    PE_LD_EXCEPTLEN,
+    PE_LD_CHECKPTR,
+    PE_LD_DISPATCHPTR,
+    PE_LD_FUNCPTR,
+    PE_LD_FUNCLEN,
+    PE_LD_GUARDFLAGS,
+    PE_LD_CODEINTEG,
+    PE_LD_TAKENPTR,
+    PE_LD_TAKENLEN,
+    PE_LD_JUMPSPTR,
+    PE_LD_JUMPSLEN,
+};
+
+enum pefile_file_mach_type {
+    PE_FM_UNKNOWN   = 0x0000,
+    PE_FM_AM33      = 0x01d3,
+    PE_FM_AMD64     = 0x8664,
+    PE_FM_ARM       = 0x01c0,
+    PE_FM_ARM64     = 0xaa64,
+    PE_FM_ARMNT     = 0x01c4,
+    PE_FM_EBC       = 0x0ebc,
+    PE_FM_I386      = 0x014c,
+    PE_FM_IA64      = 0x0200,
+    PE_FM_M32R      = 0x9041,
+    PE_FM_MIPS16    = 0x0266,
+    PE_FM_MIPSFPU   = 0x0366,
+    PE_FM_MIPSFPU16 = 0x0466,
+    PE_FM_POWERPC   = 0x01f0,
+    PE_FM_POWERPCFP = 0x01f1,
+    PE_FM_R4000     = 0x0166,
+    PE_FM_RISCV32   = 0x5032,
+    PE_FM_RISCV64   = 0x5064,
+    PE_FM_RISCV128  = 0x5128,
+    PE_FM_SH3       = 0x01a2,
+    PE_FM_SH3DSP    = 0x01a3,
+    PE_FM_SH4       = 0x01a6,
+    PE_FM_SH5       = 0x01a8,
+    PE_FM_THUMB     = 0x01c2,
+    PE_FM_WCEMIPSV2 = 0x0169,
+};
+
+enum pefile_file_characteristics {
+    PE_FC_RELOCS_STRIPPED         = 0x0001,
+    PE_FC_EXECUTABLE_IMAGE        = 0x0002,
+    PE_FC_LINE_NUMS_STRIPPED      = 0x0004,
+    PE_FC_LOCAL_SYMS_STRIPPED     = 0x0008,
+    PE_FC_AGGRESIVE_WS_TRIM       = 0x0010,
+    PE_FC_LARGE_ADDRESS_AWARE     = 0x0020,
+    PE_FC_RESERVED                = 0x0040,
+    PE_FC_BYTES_REVERSED_LO       = 0x0080,
+    PE_FC_32BIT_MACHINE           = 0x0100,
+    PE_FC_DEBUG_STRIPPED          = 0x0200,
+    PE_FC_REMOVABLE_RUN_FROM_SWAP = 0x0400,
+    PE_FC_NET_RUN_FROM_SWAP       = 0x0800,
+    PE_FC_SYSTEM                  = 0x1000,
+    PE_FC_IS_DLL                  = 0x2000,
+    PE_FC_UP_SYSTEM_ONLY          = 0x4000,
+    PE_FC_BYTES_REVERSED_HI       = 0x8000,
+};
+
+enum pefile_optional_magic {
+    PE_OM_ROM = 0x107,
+    PE_OH_32  = 0x10B,
+    PE_OH_64  = 0x20B,
+};
+
+enum pefile_windows_subsystem {
+    PE_WS_UNKNOWN                  = 0,
+    PE_WS_NATIVE                   = 1,
+    PE_WS_WINDOWS_GUI              = 2,
+    PE_WS_WINDOWS_CUI              = 3,
+    PE_WS_OS2_CUI                  = 5,
+    PE_WS_POSIX_CUI                = 7,
+    PE_WS_WINDOWS_CE_GUI           = 9,
+    PE_WS_EFI_APPLICATION          = 10,
+    PE_WS_EFI_BOOT_SERVICE_DRIVER  = 11,
+    PE_WS_EFI_RUNTIME_DRIVER       = 12,
+    PE_WS_EFI_ROM                  = 13,
+    PE_WS_XBOX                     = 14,
+    PE_WS_WINDOWS_BOOT_APPLICATION = 16,
+};
+
+enum pefile_dll_characteristics {
+    PE_DC_RESERVED_1            = 0x0001,
+    PE_DC_RESERVED_2            = 0x0002,
+    PE_DC_RESERVED_4            = 0x0004,
+    PE_DC_RESERVED_8            = 0x0008,
+    PE_DC_RESERVED_10           = 0x0010,
+    PE_DC_HIGH_ENTROPY_VA       = 0x0020,
+    PE_DC_DYNAMIC_BASE          = 0x0040,
+    PE_DC_FORCE_INTEGRITY       = 0x0080,
+    PE_DC_NX_COMPAT             = 0x0100,
+    PE_DC_NO_ISOLATION          = 0x0200,
+    PE_DC_NO_SEH                = 0x0400,
+    PE_DC_NO_BIND               = 0x0800,
+    PE_DC_APPCONTAINER          = 0x1000,
+    PE_DC_WDM_DRIVER            = 0x2000,
+    PE_DC_GUARD_CF              = 0x4000,
+    PE_DC_TERMINAL_SERVER_AWARE = 0x8000,
+};
+
+enum pefile_directory_entries {
     PE_DE_EXPORT,
     PE_DE_IMPORT,
     PE_DE_RESOURCE,
@@ -94,7 +307,52 @@ enum directory_entries {
     PE_DE_NULL,         // null terminator
 };
 
-enum resource_types {
+enum pefile_section_characteristics {
+    PE_SC_RESERVED_1      = 0x00000001,
+    PE_SC_RESERVED_2      = 0x00000002,
+    PE_SC_RESERVED_4      = 0x00000004,
+    PE_SC_TYPE_NO_PAD     = 0x00000008,
+    PE_SC_RESERVED_10     = 0x00000010,
+    PE_SC_CNT_CODE        = 0x00000020,
+    PE_SC_CNT_INIT_DATA   = 0x00000040,
+    PE_SC_CNT_UNINIT_DATA = 0x00000080,
+    PE_SC_RESERVED_100    = 0x00000100,
+    PE_SC_LNK_INFO        = 0x00000200,
+    PE_SC_RESERVED_400    = 0x00000400,
+    PE_SC_LNK_REMOVE      = 0x00000800,
+    PE_SC_LNK_COMDAT      = 0x00001000,
+    PE_SC_RESERVED_2000   = 0x00002000,
+    PE_SC_RESERVED_4000   = 0x00004000,
+    PE_SC_GPREL           = 0x00008000,
+    PE_SC_MEM_PURGEABLE   = 0x00010000,
+    PE_SC_MEM_16BIT       = 0x00020000,
+    PE_SC_MEM_LOCKED      = 0x00040000,
+    PE_SC_MEM_PRELOAD     = 0x00080000,
+    PE_SC_ALIGN_1BYTES    = 0x00100000,
+    PE_SC_ALIGN_2BYTES    = 0x00200000,
+    PE_SC_ALIGN_4BYTES    = 0x00300000,
+    PE_SC_ALIGN_8BYTES    = 0x00400000,
+    PE_SC_ALIGN_16BYTES   = 0x00500000,
+    PE_SC_ALIGN_32BYTES   = 0x00600000,
+    PE_SC_ALIGN_64BYTES   = 0x00700000,
+    PE_SC_ALIGN_128BYTES  = 0x00800000,
+    PE_SC_ALIGN_256BYTES  = 0x00900000,
+    PE_SC_ALIGN_512BYTES  = 0x00A00000,
+    PE_SC_ALIGN_1024BYTES = 0x00B00000,
+    PE_SC_ALIGN_2048BYTES = 0x00C00000,
+    PE_SC_ALIGN_4096BYTES = 0x00D00000,
+    PE_SC_ALIGN_8192BYTES = 0x00E00000,
+    PE_SC_LNK_NRELOC_OVFL = 0x01000000,
+    PE_SC_MEM_DISCARDABLE = 0x02000000,
+    PE_SC_MEM_NOT_CACHED  = 0x04000000,
+    PE_SC_MEM_NOT_PAGED   = 0x08000000,
+    PE_SC_MEM_SHARED      = 0x10000000,
+    PE_SC_MEM_EXECUTE     = 0x20000000,
+    PE_SC_MEM_READ        = 0x40000000,
+    PE_SC_MEM_WRITE       = 0x80000000,
+};
+
+enum pefile_resource_types {
     PE_RT_CURSOR,
     PE_RT_BITMAP,
     PE_RT_ICON,
@@ -108,101 +366,19 @@ enum resource_types {
     PE_RT_MESSAGETABLE,
 };
 
-enum file_characteristics {
-    PE_FC_RELOCS_STRIPPED         = 0x0001,
-    PE_FC_EXECUTABLE_IMAGE        = 0x0002,
-    PE_FC_LINE_NUMS_STRIPPED      = 0x0004,
-    PE_FC_LOCAL_SYMS_STRIPPED     = 0x0008,
-    PE_FC_AGGRESIVE_WS_TRIM       = 0x0010,
-    PE_FC_LARGE_ADDRESS_AWARE     = 0x0020,
-    PE_FC_BYTES_REVERSED_LO       = 0x0080,
-    PE_FC_32BIT_MACHINE           = 0x0100,
-    PE_FC_DEBUG_STRIPPED          = 0x0200,
-    PE_FC_REMOVABLE_RUN_FROM_SWAP = 0x0400,
-    PE_FC_NET_RUN_FROM_SWAP       = 0x0800,
-    PE_FC_SYSTEM                  = 0x1000,
-    PE_FC_IS_DLL                  = 0x2000,
-    PE_FC_UP_SYSTEM_ONLY          = 0x4000,
-};
-
-enum windows_subsystem {
-    PE_WS_UNKNOWN                  = 0,
-    PE_WS_NATIVE                   = 1,
-    PE_WS_WINDOWS_GUI              = 2,
-    PE_WS_WINDOWS_CUI              = 3,
-    PE_WS_OS2_CUI                  = 5,
-    PE_WS_POSIX_CUI                = 7,
-    PE_WS_WINDOWS_CE_GUI           = 9,
-    PE_WS_EFI_APPLICATION          = 10,
-    PE_WS_EFI_BOOT_SERVICE_DRIVER  = 11,
-    PE_WS_EFI_RUNTIME_DRIVER       = 12,
-    PE_WS_EFI_ROM                  = 13,
-    PE_WS_XBOX                     = 14,
-    PE_WS_WINDOWS_BOOT_APPLICATION = 16,
-};
-
-enum dll_characteristics {
-    PE_DC_DYNAMIC_BASE          = 0x0040,
-    PE_DC_FORCE_INTEGRITY       = 0x0080,
-    PE_DC_NX_COMPAT             = 0x0100,
-    PE_DC_NO_ISOLATION          = 0x0200,
-    PE_DC_NO_SEH                = 0x0400,
-    PE_DC_NO_BIND               = 0x0800,
-    PE_DC_WDM_DRIVER            = 0x2000,
-    PE_DC_TERMINAL_SERVER_AWARE = 0x8000,
-};
-
-enum section_characteristics {
-    PE_SC_TYPE_NO_PAD            = 0x00000008,
-    PE_SC_CNT_CODE               = 0x00000020,
-    PE_SC_CNT_INITIALIZED_DATA   = 0x00000040,
-    PE_SC_CNT_UNINITIALIZED_DATA = 0x00000080,
-    PE_SC_LNK_OTHER              = 0x00000100,
-    PE_SC_LNK_INFO               = 0x00000200,
-    PE_SC_LNK_REMOVE             = 0x00000800,
-    PE_SC_LNK_COMDAT             = 0x00001000,
-    PE_SC_NO_DEFER_SPEC_EXC      = 0x00004000,
-    PE_SC_GPREL                  = 0x00008000,
-    PE_SC_MEM_PURGEABLE          = 0x00020000,
-    PE_SC_MEM_LOCKED             = 0x00040000,
-    PE_SC_MEM_PRELOAD            = 0x00080000,
-    PE_SC_ALIGN_1BYTES           = 0x00100000,
-    PE_SC_ALIGN_2BYTES           = 0x00200000,
-    PE_SC_ALIGN_4BYTES           = 0x00300000,
-    PE_SC_ALIGN_8BYTES           = 0x00400000,
-    PE_SC_ALIGN_16BYTES          = 0x00500000,
-    PE_SC_ALIGN_32BYTES          = 0x00600000,
-    PE_SC_ALIGN_64BYTES          = 0x00700000,
-    PE_SC_ALIGN_128BYTES         = 0x00800000,
-    PE_SC_ALIGN_256BYTES         = 0x00900000,
-    PE_SC_ALIGN_512BYTES         = 0x00A00000,
-    PE_SC_ALIGN_1024BYTES        = 0x00B00000,
-    PE_SC_ALIGN_2048BYTES        = 0x00C00000,
-    PE_SC_ALIGN_4096BYTES        = 0x00D00000,
-    PE_SC_ALIGN_8192BYTES        = 0x00E00000,
-    PE_SC_LNK_NRELOC_OVFL        = 0x01000000,
-    PE_SC_MEM_DISCARDABLE        = 0x02000000,
-    PE_SC_MEM_NOT_CACHED         = 0x04000000,
-    PE_SC_MEM_NOT_PAGED          = 0x08000000,
-    PE_SC_MEM_SHARED             = 0x10000000,
-    PE_SC_MEM_EXECUTE            = 0x20000000,
-    PE_SC_MEM_READ               = 0x40000000,
-    PE_SC_MEM_WRITE              = 0x80000000,
-};
-
-enum certificate_versions {
+enum pefile_certificate_versions {
     PE_CERT_V1=0x100,
     PE_CERT_V2=0x200,
 };
 
-enum certificate_types {
+enum pefile_certificate_types {
     PE_CERT_TYPE_X509=1,
     PE_CERT_TYPE_PKCS_SIGNED_DATA,
     PE_CERT_TYPE_RESERVED_1,
     PE_CERT_TYPE_TS_STACK_SIGNED,
 };
 
-enum relocation_types {
+enum pefile_relocation_types {
     PE_RELOC_TYPE_ABSOLUTE       = 0x0,
     PE_RELOC_TYPE_HIGH           = 0x1,
     PE_RELOC_TYPE_LOW            = 0x2,
@@ -216,6 +392,23 @@ enum relocation_types {
     PE_RELOC_TYPE_RISCV_LOW12S   = 0x8,
     PE_RELOC_TYPE_MIPS_JMPADDR16 = 0x9,
     PE_RELOC_TYPE_DIR64          = 0xA,
+};
+
+enum pefile_dbg_types {
+    PE_DT_UNKNOWN               = 0,
+    PE_DT_COFF                  = 1,
+    PE_DT_CODEVIEW              = 2,
+    PE_DT_FPO                   = 3,
+    PE_DT_MISC                  = 4,
+    PE_DT_EXCEPTION             = 5,
+    PE_DT_FIXUP                 = 6,
+    PE_DT_OMAP_TO_SRC           = 7,
+    PE_DT_OMAP_FROM_SRC         = 8,
+    PE_DT_BORLAND               = 9,
+    PE_DT_RESERVED10            = 10,
+    PE_DT_CLSID                 = 11,
+    PE_DT_REPRO                 = 16,
+    PE_DT_EX_DLLCHARACTERISTICS = 20,
 };
 
 struct dos_h {
@@ -262,6 +455,7 @@ struct file_h {
      * 0x1000 IMAGE_FILE_SYSTEM
      * 0x2000 IMAGE_FILE_IS_DLL
      * 0x4000 IMAGE_FILE_UP_SYSTEM_ONLY
+     * 0x8000 IMAGE_FILE_BYTES_REVERSED_HI
      */
 };
 
@@ -451,30 +645,6 @@ struct resource_header {
     uint16_t number_of_id_entries;
 };
 
-struct debug_dir {
-    uint32_t characteristics;
-    uint32_t timestamp;
-    uint16_t version_major;
-    uint16_t version_minor;
-    uint32_t type;
-    uint32_t data_size;
-    uint32_t data_rva;
-    uint32_t data_apa;
-};
-
-STRUCT_TLS_TABLE(32) STRUCT_TLS_TABLE(64)
-
-struct delay_import_desc {
-    uint32_t attributes;
-    uint32_t name;
-    uint32_t module_handle;
-    uint32_t delay_import_address_table_rva;
-    uint32_t delay_import_names_table_rva;
-    uint32_t bound_import_address_table_rva;
-    uint32_t unload_import_address_table_rva;
-    uint32_t timestamp;
-};
-
 struct resource_entry {
     union { // string or ID
         struct {
@@ -500,6 +670,20 @@ struct resource_metadata {
     uint32_t reserved;
 };
 
+struct exception_dir_32 {
+    uint32_t start_rva;
+    uint32_t end_rva;
+    uint32_t exception_handler;
+    uint32_t handler_data;
+    uint32_t prolog_end_address;
+};
+
+struct exception_dir_64 {
+    uint32_t start_rva;
+    uint32_t end_rva;
+    uint32_t unwind_information;
+};
+
 struct certificate_metadata {
     uint32_t size;
     uint16_t version;
@@ -514,6 +698,11 @@ struct certificate_metadata {
      */
 };
 
+struct cert_table {
+    struct  certificate_metadata metadata;
+    char   *data;
+};
+
 struct relocation_entry {
     uint16_t offset : 12;
     uint16_t type   : 4;
@@ -524,28 +713,37 @@ struct relocation_header {
     uint32_t size;
 };
 
+struct debug_dir {
+    uint32_t characteristics;
+    uint32_t timestamp;
+    uint16_t version_major;
+    uint16_t version_minor;
+    uint32_t type;
+    uint32_t data_size;
+    uint32_t data_rva;
+    uint32_t data_apa;
+};
+
+STRUCT_TLS_TABLE(32) STRUCT_TLS_TABLE(64)
+
 STRUCT_LOAD_CONFIG(32) STRUCT_LOAD_CONFIG(64)
+
+struct delay_import_desc {
+    uint32_t attributes;
+    uint32_t name;
+    uint32_t module_handle;
+    uint32_t delay_import_address_table_rva;
+    uint32_t delay_import_names_table_rva;
+    uint32_t bound_import_address_table_rva;
+    uint32_t unload_import_address_table_rva;
+    uint32_t timestamp;
+};
 
 /* -==============-
  *  CUSTOM STRUCTS
  * -==============-
  * structures here do not occur literally in the PE file and are used to better organize data
  */
-
-struct import_lookup {
-    union {
-        struct thunk_data_32 metadata32;
-        struct thunk_data_64 metadata64;
-    };
-    struct import_by_name function_name;
-};
-
-struct import_table {
-    char                  name[PEFILE_NAME_MODULE_MAX_LEN];
-    struct import_desc    metadata;
-    struct import_lookup *lookups; // array
-    unsigned int          lookups_len;
-};
 
 /* offset to the exported function name and the name itself */
 struct export_by_name { // address_of_name (Pointers to strings)
@@ -566,6 +764,21 @@ struct export_table {
     unsigned int            addrs_len;
     unsigned int            nords_len;
     unsigned int            names_len;
+};
+
+struct import_lookup {
+    union {
+        struct thunk_data_32 metadata32;
+        struct thunk_data_64 metadata64;
+    };
+    struct import_by_name function_name;
+};
+
+struct import_table {
+    char                  name[PEFILE_NAME_MODULE_MAX_LEN];
+    struct import_desc    metadata;
+    struct import_lookup *lookups; // array
+    unsigned int          lookups_len;
 };
 
 struct resource_table {
@@ -591,31 +804,12 @@ struct exception_func_ptr {
     uint32_t code_size;
 };
 
-struct exception_dir_32 {
-    uint32_t start_rva;
-    uint32_t end_rva;
-    uint32_t exception_handler;
-    uint32_t handler_data;
-    uint32_t prolog_end_address;
-};
-
-struct exception_dir_64 {
-    uint32_t start_rva;
-    uint32_t end_rva;
-    uint32_t unwind_information;
-};
-
 struct exception_table {
     struct exception_func_ptr function;
     union {
         struct exception_dir_32 entry32;
         struct exception_dir_64 entry64;
     };
-};
-
-struct cert_table {
-    struct  certificate_metadata metadata;
-    char   *data;
 };
 
 struct reloc_table {
